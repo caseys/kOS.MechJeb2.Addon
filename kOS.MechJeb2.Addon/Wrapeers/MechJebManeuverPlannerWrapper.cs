@@ -43,7 +43,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
     /// - CLOSEST_APPROACH - at closest approach to target
     /// </summary>
     [KOSNomenclature("ManeuverPlannerWrapper")]
-    public class MechJebManeuverPlannerWrapper : BaseWrapper, IMechJebManeuverPlannerWrapper
+    public partial class MechJebManeuverPlannerWrapper : BaseWrapper, IMechJebManeuverPlannerWrapper
     {
         // Cache for operation instances (from MechJeb's static array)
         private object[] _operations;
@@ -116,6 +116,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 BindingFlags.Public | BindingFlags.Static);
         }
 
+        // Partial method declarations for suffix initialization in partial classes
+        partial void InitializeOrbitalSuffixes();
+        partial void InitializeAdvancedSuffixes();
+        partial void InitializeTransferSuffixes();
+
         protected override void InitializeSuffixes()
         {
             AddSuffix("CHANGEPE",
@@ -142,6 +147,9 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new NoArgsSuffix<ListValue>(
                     GetOperationNames,
                     "List all available maneuver operations"));
+
+            // Initialize suffixes from partial classes
+            InitializeOrbitalSuffixes();
         }
 
         public override string context() => nameof(MechJebManeuverPlannerWrapper);
@@ -177,7 +185,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 // Set Capture to control whether we get 1 or 2 nodes
                 SetBoolFieldOnOperation(op, "Capture", (bool)capture);
                 SetBoolFieldOnOperation(op, "PlanCapture", (bool)capture);
-                SetBoolFieldOnOperation(op, "Rendezvous", false);  // Transfer, not rendezvous
+                SetBoolFieldOnOperation(op, "Rendezvous", true);   // Rendezvous mode for proper encounter
                 SetBoolFieldOnOperation(op, "Coplanar", false);    // Full 3D transfer
             });
         }
@@ -216,8 +224,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             if (operation == null)
                 throw new KOSException($"Operation {operationTypeName} not found");
 
-            // Set time reference on the operation's TimeSelector
-            SetTimeReference(operation, timeRef);
+            // Set time reference on the operation's TimeSelector (skip if null for auto-timing operations)
+            if (timeRef != null)
+            {
+                SetTimeReference(operation, timeRef);
+            }
 
             // Configure operation-specific parameters
             configure(operation);
@@ -250,6 +261,15 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             // Place the nodes using Vessel.PlaceManeuverNode - exactly like WindowGUI line 111
             // ManeuverParameters has dV (Vector3d) and UT (double) as fields
             var nodes = (System.Collections.IList)nodeList;
+
+            // Check if list is empty (MechJeb returns empty list for invalid transfer windows)
+            if (nodes.Count == 0)
+            {
+                UnityEngine.Debug.Log($"[kOS.MechJeb2.Addon] {operationTypeName}: MakeNodes returned empty list - no valid transfer window or maneuver");
+                return false;
+            }
+
+            UnityEngine.Debug.Log($"[kOS.MechJeb2.Addon] {operationTypeName}: Placing {nodes.Count} node(s)");
 
             foreach (var node in nodes)
             {
