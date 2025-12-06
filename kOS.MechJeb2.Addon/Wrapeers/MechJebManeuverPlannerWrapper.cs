@@ -7,7 +7,6 @@ using kOS.Safe.Encapsulation;
 using kOS.Safe.Encapsulation.Suffixes;
 using kOS.Safe.Exceptions;
 using kOS.Safe.Utilities;
-using UnityEngine;
 
 namespace kOS.MechJeb2.Addon.Wrapeers
 {
@@ -51,8 +50,8 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private Type _timeSelectorType;
         private Type _timeReferenceType;
 
-        // The actual ManeuverPlanner module - we use ITS properties for context
-        private object _maneuverPlannerModule;
+        // Method to get ManeuverPlanner module fresh from MasterMechJeb
+        private MethodInfo _getComputerModuleMethod;
 
         // Accessors for ManeuverPlanner module's properties (inherited from ComputerModule)
         private Func<object, object> _getModuleVesselState;  // ComputerModule.VesselState
@@ -60,6 +59,17 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private Func<object, object> _getModuleVessel;       // ComputerModule.Vessel
         private Func<object, object> _getCoreTarget;         // ComputerModule.Core.Target
         private Func<object, double> _getVesselStateTime;    // VesselState.time
+
+        /// <summary>
+        /// Gets a fresh ManeuverPlanner module from MasterMechJeb every time.
+        /// This avoids stale reference issues after save reloads.
+        /// </summary>
+        private object GetManeuverPlannerModule()
+        {
+            if (MasterMechJeb == null)
+                return null;
+            return _getComputerModuleMethod?.Invoke(MasterMechJeb, new object[] { "MechJebModuleManeuverPlanner" });
+        }
 
         // For placing nodes
         private MethodInfo _placeManeuverNodeMethod;
@@ -74,12 +84,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 BindingFlags.NonPublic | BindingFlags.Static);
             _operations = (object[])opsField.GetValue(null);
 
-            // Get the actual ManeuverPlanner module from MasterMechJeb (MechJebCore)
-            // We use this module's properties exactly like WindowGUI does
+            // Cache the method to get ManeuverPlanner module fresh each time
+            // This avoids stale reference issues after save reloads
             // MechJebCore has GetComputerModule(string type) - not GetComputerModule(Type)
-            var getComputerModuleMethod = MasterMechJeb.GetType().GetMethod("GetComputerModule",
+            _getComputerModuleMethod = MasterMechJeb.GetType().GetMethod("GetComputerModule",
                 new Type[] { typeof(string) });
-            _maneuverPlannerModule = getComputerModuleMethod.Invoke(MasterMechJeb, new object[] { "MechJebModuleManeuverPlanner" });
 
             // Find TimeSelector and TimeReference types
             _timeSelectorType = "MuMech.TimeSelector".GetTypeFromCache();
@@ -117,79 +126,28 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         }
 
         // Partial method declarations for suffix initialization in partial classes
+        partial void InitializeBasicSuffixes();
         partial void InitializeOrbitalSuffixes();
-        partial void InitializeAdvancedSuffixes();
         partial void InitializeTransferSuffixes();
+        partial void InitializeRendezvousSuffixes();
 
         protected override void InitializeSuffixes()
         {
-            AddSuffix("CHANGEPE",
-                new TwoArgsSuffix<BooleanValue, ScalarValue, StringValue>(
-                    ChangePeriapsis,
-                    "Change periapsis to altitude (m) at time reference (APOAPSIS, PERIAPSIS, etc)"));
-
-            AddSuffix("CHANGEAP",
-                new TwoArgsSuffix<BooleanValue, ScalarValue, StringValue>(
-                    ChangeApoapsis,
-                    "Change apoapsis to altitude (m) at time reference"));
-
-            AddSuffix("CIRCULARIZE",
-                new OneArgsSuffix<BooleanValue, StringValue>(
-                    Circularize,
-                    "Circularize at time reference (APOAPSIS, PERIAPSIS, etc)"));
-
-            AddSuffix("HOHMANN",
-                new TwoArgsSuffix<BooleanValue, StringValue, BooleanValue>(
-                    HohmannTransfer,
-                    "Hohmann transfer to target (timeRef, capture)"));
-
             AddSuffix("OPERATIONS",
                 new NoArgsSuffix<ListValue>(
                     GetOperationNames,
                     "List all available maneuver operations"));
 
             // Initialize suffixes from partial classes
+            InitializeBasicSuffixes();
             InitializeOrbitalSuffixes();
+            InitializeTransferSuffixes();
+            InitializeRendezvousSuffixes();
         }
 
         public override string context() => nameof(MechJebManeuverPlannerWrapper);
 
-        private BooleanValue ChangePeriapsis(ScalarValue altitude, StringValue timeRef)
-        {
-            return ExecuteOperation("OperationPeriapsis", timeRef, op =>
-            {
-                // Use same pattern as AscentWrapper's BindEditable
-                SetEditableOnOperation(op, "NewPeA", (double)altitude);
-            });
-        }
-
-        private BooleanValue ChangeApoapsis(ScalarValue altitude, StringValue timeRef)
-        {
-            return ExecuteOperation("OperationApoapsis", timeRef, op =>
-            {
-                // Use same pattern as AscentWrapper's BindEditable
-                SetEditableOnOperation(op, "NewApA", (double)altitude);
-            });
-        }
-
-        private BooleanValue Circularize(StringValue timeRef)
-        {
-            return ExecuteOperation("OperationCircularize", timeRef, op => { });
-        }
-
-        private BooleanValue HohmannTransfer(StringValue timeRef, BooleanValue capture)
-        {
-            return ExecuteOperation("OperationGeneric", timeRef, op =>
-            {
-                // OperationGeneric is the Hohmann transfer operation
-                // Set Capture to control whether we get 1 or 2 nodes
-                SetBoolFieldOnOperation(op, "Capture", (bool)capture);
-                SetBoolFieldOnOperation(op, "PlanCapture", (bool)capture);
-                SetBoolFieldOnOperation(op, "Rendezvous", true);   // Rendezvous mode for proper encounter
-                SetBoolFieldOnOperation(op, "Coplanar", false);    // Full 3D transfer
-            });
-        }
-
+        // Helper method for setting boolean fields (used by partial classes)
         private void SetBoolFieldOnOperation(object operation, string fieldName, bool value)
         {
             var field = operation.GetType().GetField(fieldName,
@@ -217,6 +175,31 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             if (!Initialized)
                 throw new KOSException("ManeuverPlanner not initialized");
 
+            // Get a fresh ManeuverPlanner module from MasterMechJeb
+            // This avoids stale reference issues after save reloads
+            var maneuverPlannerModule = GetManeuverPlannerModule();
+            if (maneuverPlannerModule == null)
+                throw new KOSException("ManeuverPlanner module not available - MechJeb may not be ready");
+
+            // Check vessel reference (Unity "fake null" - destroyed objects that aren't C# null)
+            object vessel;
+            try
+            {
+                vessel = _getModuleVessel(maneuverPlannerModule);
+            }
+            catch
+            {
+                throw new KOSException("MechJeb vessel reference is invalid. " +
+                    "Please wait a moment and try again.");
+            }
+
+            bool vesselIsInvalid = (vessel == null) || (vessel.ToString() == "null");
+            if (vesselIsInvalid)
+            {
+                throw new KOSException("MechJeb vessel reference is invalid. " +
+                    "Please wait a moment and try again.");
+            }
+
             // Find the operation
             var operation = _operations.FirstOrDefault(op =>
                 op.GetType().Name.Equals(operationTypeName, StringComparison.OrdinalIgnoreCase));
@@ -235,14 +218,10 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             // Get orbit and time from the ManeuverPlanner module's properties
             // This is EXACTLY what WindowGUI does: VesselState.time and Orbit
-            if (_maneuverPlannerModule == null)
-                throw new KOSException("ManeuverPlanner module not available");
-
-            var vesselState = _getModuleVesselState(_maneuverPlannerModule);
+            var vesselState = _getModuleVesselState(maneuverPlannerModule);
             var ut = _getVesselStateTime(vesselState);
-            var orbit = _getModuleOrbit(_maneuverPlannerModule);
-            var vessel = _getModuleVessel(_maneuverPlannerModule);
-            var target = _getCoreTarget(_maneuverPlannerModule);
+            var orbit = _getModuleOrbit(maneuverPlannerModule);
+            var target = _getCoreTarget(maneuverPlannerModule);
 
             // Call MakeNodes - exactly like WindowGUI line 104
             var makeNodes = operation.GetType().GetMethod("MakeNodes");
@@ -264,12 +243,112 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             // Check if list is empty (MechJeb returns empty list for invalid transfer windows)
             if (nodes.Count == 0)
+                return false;
+
+            foreach (var node in nodes)
             {
-                UnityEngine.Debug.Log($"[kOS.MechJeb2.Addon] {operationTypeName}: MakeNodes returned empty list - no valid transfer window or maneuver");
+                var dV = GetField(node, "dV");
+                var nodeUT = (double)GetField(node, "UT");
+                _placeManeuverNodeMethod.Invoke(null, new[] { vessel, orbit, dV, nodeUT });
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Execute an operation that requires setting targetLongitude on the target controller.
+        /// Used by LONGITUDE and LAN operations.
+        /// </summary>
+        private BooleanValue ExecuteOperationWithTargetLongitude(string operationTypeName, double longitudeDegrees, StringValue timeRef)
+        {
+            if (!Initialized)
+                throw new KOSException("ManeuverPlanner not initialized");
+
+            // Get a fresh ManeuverPlanner module from MasterMechJeb
+            // This avoids stale reference issues after save reloads
+            var maneuverPlannerModule = GetManeuverPlannerModule();
+            if (maneuverPlannerModule == null)
+                throw new KOSException("ManeuverPlanner module not available - MechJeb may not be ready");
+
+            // Check vessel reference (Unity "fake null" - destroyed objects that aren't C# null)
+            object vessel;
+            try
+            {
+                vessel = _getModuleVessel(maneuverPlannerModule);
+            }
+            catch
+            {
+                throw new KOSException("MechJeb vessel reference is invalid. " +
+                    "Please wait a moment and try again.");
+            }
+
+            bool vesselIsInvalid = (vessel == null) || (vessel.ToString() == "null");
+            if (vesselIsInvalid)
+            {
+                throw new KOSException("MechJeb vessel reference is invalid. " +
+                    "Please wait a moment and try again.");
+            }
+
+            // Find the operation
+            var operation = _operations.FirstOrDefault(op =>
+                op.GetType().Name.Equals(operationTypeName, StringComparison.OrdinalIgnoreCase));
+
+            if (operation == null)
+                throw new KOSException($"Operation {operationTypeName} not found");
+
+            // Set time reference on the operation's TimeSelector
+            if (timeRef != null)
+            {
+                SetTimeReference(operation, timeRef);
+            }
+
+            // Get orbit, time, and target controller
+            var vesselState = _getModuleVesselState(maneuverPlannerModule);
+            var ut = _getVesselStateTime(vesselState);
+            var orbit = _getModuleOrbit(maneuverPlannerModule);
+            var target = _getCoreTarget(maneuverPlannerModule);
+
+            if (target == null)
+                throw new KOSException("Target controller not available");
+
+            // Set targetLongitude on the target controller
+            // targetLongitude is an EditableAngle field - we can create a new instance from a double
+            var targetLongitudeField = target.GetType().GetField("targetLongitude",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (targetLongitudeField == null)
+                throw new KOSException("targetLongitude field not found on target controller");
+
+            var editableAngle = targetLongitudeField.GetValue(target);
+            if (editableAngle == null)
+                throw new KOSException("targetLongitude is null");
+
+            // Create a new EditableAngle from the longitude value
+            // EditableAngle has a constructor that takes a double and does all the D/M/S decomposition
+            var editableAngleType = editableAngle.GetType();
+            var newAngle = Activator.CreateInstance(editableAngleType, longitudeDegrees);
+            targetLongitudeField.SetValue(target, newAngle);
+
+            // Call MakeNodes - exactly like WindowGUI line 104
+            var makeNodes = operation.GetType().GetMethod("MakeNodes");
+            var nodeList = makeNodes.Invoke(operation, new object[] { orbit, ut, target });
+
+            if (nodeList == null)
+            {
+                // Check ErrorMessage via GetErrorMessage() method
+                var getErrorMsg = operation.GetType().GetMethod("GetErrorMessage");
+                var errorMsg = getErrorMsg?.Invoke(operation, null) as string;
+                if (!string.IsNullOrEmpty(errorMsg))
+                    throw new KOSException($"Maneuver failed: {errorMsg}");
                 return false;
             }
 
-            UnityEngine.Debug.Log($"[kOS.MechJeb2.Addon] {operationTypeName}: Placing {nodes.Count} node(s)");
+            // Place the nodes using Vessel.PlaceManeuverNode - exactly like WindowGUI line 111
+            var nodes = (System.Collections.IList)nodeList;
+
+            // Check if list is empty
+            if (nodes.Count == 0)
+                return false;
 
             foreach (var node in nodes)
             {

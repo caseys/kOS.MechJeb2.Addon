@@ -29,7 +29,40 @@ end getFileSize
 --------------------------------------------------------
 -- Steam KSP auto discover
 --------------------------------------------------------
-on findKSP()
+on getSaveNameFromArgs(argv)
+    --------------------------------------------------------
+    -- Get save name from command-line arguments
+    -- If 1 arg provided and it's NOT a valid KSP path, treat it as save name
+    -- If 2 args provided, second arg is save name
+    --------------------------------------------------------
+    try
+        set argCount to count of argv
+
+        -- Two args: first is KSP path, second is save name
+        if argCount ≥ 2 then
+            set saveName to item 2 of argv
+            log "📌 Using save name from second argument: " & saveName
+            return saveName
+        end if
+
+        -- One arg: check if it's a directory (KSP path) or save name
+        if argCount = 1 then
+            set argPath to item 1 of argv
+            set isDir to (do shell script "test -d " & quoted form of argPath & " && echo OK || echo NO")
+            if isDir is "NO" then
+                -- Not a valid directory, treat as save name
+                log "📌 Using save name from first argument: " & argPath
+                return argPath
+            end if
+        end if
+    end try
+
+    -- Default to test1 if no save name argument provided
+    log "📌 Using default save name: test1"
+    return "test1"
+end getSaveNameFromArgs
+
+on findKSP(argv)
     -- Expand home path properly (tilde cannot be used directly)
     set configPath to (do shell script "echo $HOME") & "/.ksp_automation_path"
 
@@ -37,9 +70,8 @@ on findKSP()
     -- 1️⃣ Command line argument check
     --------------------------------------------------------
     try
-        set theArgs to (system attribute "OSA_ARGV")
-        if theArgs is not missing value then
-            set argPath to item 1 of theArgs
+        if (count of argv) > 0 then
+            set argPath to item 1 of argv
             if (do shell script "test -d " & quoted form of argPath & " && echo OK || echo NO") is "OK" then
                 log "📌 Using KSP path from command-line argument"
                 do shell script "echo " & quoted form of argPath & " > " & quoted form of configPath
@@ -98,23 +130,32 @@ on findKSP()
     return chosenPath
 end findKSP
 
+on run argv
+    main(argv)
+end run
 
-
+on main(argv)
 
 log "⏱ Estimated time until KSP ship is launch ready: ~6 minutes 30 seconds"
 log "🚀 Do not interact with KSP during automation!"
 delay 1
 
 --------------------------------------------------------
+-- Get save name from arguments
+--------------------------------------------------------
+set targetSaveName to my getSaveNameFromArgs(argv)
+
+--------------------------------------------------------
 -- Locate KSP
 --------------------------------------------------------
-set kspPath to findKSP()
+set kspPath to my findKSP(argv)
 if kspPath is missing value then
     display dialog "Could not locate Kerbal Space Program installation via Steam." buttons {"OK"}
     return
 end if
 
 log "Found KSP at: " & kspPath
+log "Will load save: " & targetSaveName
 
 --------------------------------------------------------
 -- Ensure KSP is not already running and launch
@@ -206,12 +247,8 @@ pressSpecial(36)
 -- First result + Load
 pressSpecial(125)
 pressSpecial(36)
-repeat 4 times
-    pressSpecial(125)
-end repeat
-pressSpecial(124)
 pressSpecial(36)
-delay 15
+delay 20
 
 -- Pause menu -> Load Game
 pressSpecial(53)
@@ -221,13 +258,11 @@ pressSpecial(125)
 pressSpecial(36)
 delay 2
 
--- Search for test1
+-- Search for target save name
 pressSpecial(48)
-pressKey("t")
-pressKey("e")
-pressKey("s")
-pressKey("t")
-pressKey("1")
+repeat with char in targetSaveName
+    pressKey(char as text)
+end repeat
 pressSpecial(36)
 
 -- Select result and load
@@ -246,3 +281,5 @@ delay 15
 --------------------------------------------------------
 
 log "🚀 KSP is running and ship is ready to launch!"
+
+end main

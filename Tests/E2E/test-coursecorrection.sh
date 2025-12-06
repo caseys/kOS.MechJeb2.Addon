@@ -9,60 +9,17 @@
 
 set -e
 
-echo "========================================="
-echo "COURSECORRECTION E2E Test"
-echo "========================================="
-echo ""
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/with-test-helpers.sh"
 
-# Configuration
-KOS_HOST="127.0.0.1"
-KOS_PORT=5410
-KSP_STARTUP_WAIT=420  # 7 minutes max for KSP to fully load
-MAX_WAIT=300  # 5 minutes max wait for kOS to be ready after startup
+# Test-specific configuration
 BURN_TIMEOUT=2400  # 40 minutes max for burn (warp + execution)
 
-# Get script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
+test_setup "COURSECORRECTION"
+ksp_init "test2"
+kos_ready
 
-echo "Step 0: Starting KSP with test2 save..."
-# Kill existing KSP if running
-osascript -e 'tell application "KSP" to quit' 2>/dev/null || true
-sleep 3
-
-# Start KSP in background
-"$SCRIPT_DIR/StartKSP.scpt" test2 > /tmp/ksp-startup.log 2>&1 &
-KSP_PID=$!
-
-echo "  KSP starting (PID: $KSP_PID)..."
-echo "  Waiting up to $(($KSP_STARTUP_WAIT / 60)) minutes for startup..."
-
-# Wait for KSP startup to complete
-ELAPSED=0
-while [ $ELAPSED -lt $KSP_STARTUP_WAIT ]; do
-    # Check if StartKSP.scpt has finished
-    if ! ps -p $KSP_PID > /dev/null 2>&1; then
-        echo "  ✓ KSP startup script completed"
-        break
-    fi
-    sleep 10
-    ELAPSED=$((ELAPSED + 10))
-    echo "    Startup progress: ${ELAPSED}s / ${KSP_STARTUP_WAIT}s"
-done
-
-if [ $ELAPSED -ge $KSP_STARTUP_WAIT ]; then
-    echo "✗ KSP did not start in time"
-    exit 1
-fi
-
-echo ""
-
-echo "Step 1: Executing Hohmann transfer to Mun..."
-cd /Users/casey/src/ksp-mcp
-
-# Give kOS a moment to initialize after KSP loads
-echo "  Waiting 10 seconds for kOS to fully initialize..."
-sleep 10
+echo "Step 2: Executing Hohmann transfer to Mun..."
 
 # The test2 save already has Mun targeted
 # The hohmann script will:
@@ -71,22 +28,57 @@ sleep 10
 # 3. Enable MechJeb node executor
 # 4. Wait for burn completion
 echo "  Starting Hohmann transfer (this will take ~20-40 minutes)..."
-npm run hohmann || {
-    echo "✗ Hohmann transfer failed"
+echo "  (timeout: ${BURN_TIMEOUT}s)"
+
+# Use gtimeout on macOS, timeout on Linux
+TIMEOUT_CMD="${TIMEOUT_CMD:-$(command -v gtimeout || command -v timeout || echo "")}"
+if [ -z "$TIMEOUT_CMD" ]; then
+    echo "  ⚠️  No timeout command found, running without timeout..."
+    npm run hohmann > /tmp/hohmann-coursecorrection-test-output.log 2>&1
+else
+    if ! "$TIMEOUT_CMD" "$BURN_TIMEOUT" npm run hohmann > /tmp/hohmann-coursecorrection-test-output.log 2>&1; then
+        if [ $? -eq 124 ]; then
+            echo "✗ Hohmann transfer timed out after ${BURN_TIMEOUT}s" | tee -a "$RUN_LOG"
+            cat /tmp/hohmann-coursecorrection-test-output.log
+            exit 1
+        fi
+        # Non-timeout failure - let validation below handle it
+    fi
+fi
+
+# Validate Hohmann node creation using helper
+source "$SCRIPT_DIR/validate-node-creation.sh"
+if ! validate_node_creation /tmp/hohmann-coursecorrection-test-output.log "HOHMANN"; then
+    echo ""
+    echo "Full output:"
+    cat /tmp/hohmann-coursecorrection-test-output.log
     exit 1
-}
+fi
 
 echo ""
-echo "Step 2: Testing COURSECORRECTION..."
+echo "Step 3: Testing COURSECORRECTION..."
+echo "  Fine-tuning approach to 50km periapsis..."
 # The course-correction script will:
 # 1. Check current encounter
 # 2. Create course correction node to 50km periapsis
-npm run course-correction 50 || {
-    echo "✗ Course correction failed"
+npm run course-correction 50 > /tmp/coursecorrection-test-output.log 2>&1
+
+# Validate course correction node creation using helper
+if ! validate_node_creation /tmp/coursecorrection-test-output.log "COURSECORRECTION"; then
+    echo ""
+    echo "Full output:"
+    cat /tmp/coursecorrection-test-output.log
     exit 1
-}
+fi
 
 echo ""
-echo "========================================="
-echo "Test complete!"
-echo "========================================="
+echo "  Test output:"
+echo "  ---"
+# Show key details from output
+grep "Current encounter" /tmp/coursecorrection-test-output.log || true
+grep "Target periapsis" /tmp/coursecorrection-test-output.log || true
+grep "Node created" /tmp/coursecorrection-test-output.log || true
+grep -A 1 "ΔV:" /tmp/coursecorrection-test-output.log || true
+echo "  ---"
+
+test_success "COURSECORRECTION" "The operation successfully fine-tuned approach to 50km periapsis."

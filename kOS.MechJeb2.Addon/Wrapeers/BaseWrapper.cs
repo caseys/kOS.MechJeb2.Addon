@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using kOS.MechJeb2.Addon.Core;
 using kOS.MechJeb2.Addon.Utils;
 using kOS.Safe.Encapsulation;
@@ -13,8 +14,75 @@ namespace kOS.MechJeb2.Addon.Wrapeers
     {
         private Func<object, object> _getterMasterMechJeb;
         protected object CoreInstance { get; private set; }
-        
-        protected object MasterMechJeb => _getterMasterMechJeb(CoreInstance);
+
+        // Cached reflection info for getting fresh MasterMechJeb
+        private static MethodInfo _getMasterMechJebMethod;
+        private static bool _reflectionInitialized;
+
+        /// <summary>
+        /// Gets MasterMechJeb, automatically refreshing from FlightGlobals.ActiveVessel if the cached instance is stale.
+        /// This handles save reloads where the old CoreInstance becomes a destroyed Unity object.
+        /// </summary>
+        protected object MasterMechJeb
+        {
+            get
+            {
+                // First try the cached getter
+                var master = _getterMasterMechJeb?.Invoke(CoreInstance);
+
+                // Check if it's valid (not null and not a destroyed Unity object)
+                if (master != null)
+                {
+                    try
+                    {
+                        // Accessing ToString() on a destroyed Unity object throws
+                        if (master.ToString() != "null")
+                            return master;
+                    }
+                    catch
+                    {
+                        // Fall through to get fresh instance
+                    }
+                }
+
+                // MasterMechJeb is stale - get a fresh one from the active vessel
+                return GetFreshMasterMechJeb();
+            }
+        }
+
+        /// <summary>
+        /// Gets a fresh MasterMechJeb from FlightGlobals.ActiveVessel.
+        /// This is the same logic as Addon.TryInitializeMechJebCore.
+        /// </summary>
+        private static object GetFreshMasterMechJeb()
+        {
+            if (!_reflectionInitialized)
+            {
+                var vesselExtensionType = Constants.VesselExtensionName.GetTypeFromCache();
+                if (vesselExtensionType != null)
+                {
+                    _getMasterMechJebMethod = vesselExtensionType.GetMethod("GetMasterMechJeb",
+                        BindingFlags.Public | BindingFlags.Static);
+                }
+                _reflectionInitialized = true;
+            }
+
+            if (_getMasterMechJebMethod == null)
+                return null;
+
+            var vessel = FlightGlobals.ActiveVessel;
+            if (vessel == null)
+                return null;
+
+            try
+            {
+                return _getMasterMechJebMethod.Invoke(null, new object[] { vessel });
+            }
+            catch
+            {
+                return null;
+            }
+        }
         
         public bool Initialized { get; protected set; }
 

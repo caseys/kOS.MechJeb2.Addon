@@ -21,7 +21,6 @@ namespace kOS.MechJeb2.Addon
     {
         private PartModule _mechJebCore;
         private bool _isCoreInitialized = false;
-        private bool? _isMechJebDev;
 
         public Addon(SharedObjects shared) : base(shared)
         {
@@ -32,9 +31,23 @@ namespace kOS.MechJeb2.Addon
         public override BooleanValue Available()
         {
             Log.Debug("MJAddon.Available() called");
-            if (!_isCoreInitialized) TryInitializeMechJebCore();
-            _isMechJebDev ??= _mechJebCore.GetType().Assembly.IsMechJebDevBuild();
-            Log.Debug($"MechJeb DEV build detected: {_isMechJebDev}");
+            // Check if GameEvents triggered reinitialization (save reload, vessel change, scene change)
+            if (MechJebController.NeedsReinitialization)
+            {
+                Log.Debug("NeedsReinitialization flag set - forcing reinitialization");
+                _isCoreInitialized = false;  // Reset local flag
+                _mechJebCore = null;  // Clear stale reference
+                bool success = TryInitializeMechJebCore(true);  // Force reinitialize
+                if (success)
+                {
+                    MechJebController.ClearReinitializationFlag();
+                }
+                // If initialization failed, keep NeedsReinitialization true so we retry next time
+            }
+            else if (!_isCoreInitialized)
+            {
+                TryInitializeMechJebCore();
+            }
             return MechJebController.IsAvailable;
         }
 
@@ -63,25 +76,43 @@ namespace kOS.MechJeb2.Addon
             return new VersionInfo(ver.Major, ver.Minor, ver.Build, ver.Revision);
         }
 
-        private void TryInitializeMechJebCore(bool force = false)
+        private bool TryInitializeMechJebCore(bool force = false)
         {
             Log.Debug($"Trying to initialize MechJebCore (force={force})");
-            if (_isCoreInitialized && !force) return;
+            if (_isCoreInitialized && !force) return true;
 
             var vesselExtensionType = Constants.VesselExtensionName.GetTypeFromCache();
             if (vesselExtensionType == null)
             {
                 Log.Error("[kOS.MJ] Cannot find MuMech.VesselExtensions type");
-                return;
+                return false;
             }
 
             var getMasterMechJeb =
                 vesselExtensionType.GetMethod("GetMasterMechJeb", BindingFlags.Public | BindingFlags.Static);
 
-            var vessel = shared.Vessel;
+            // Use FlightGlobals.ActiveVessel instead of shared.Vessel
+            // shared.Vessel may be stale after save reload, but FlightGlobals is always current
+            var vessel = FlightGlobals.ActiveVessel ?? shared.Vessel;
 
+            // Check if vessel is valid (not null and not a destroyed Unity object)
             if (vessel == null || getMasterMechJeb == null)
-                return;
+            {
+                Log.Debug("Vessel or GetMasterMechJeb is null");
+                return false;
+            }
+
+            // Additional check: vessel might be a "fake null" (destroyed Unity object)
+            try
+            {
+                // Accessing any property on a destroyed Unity object throws
+                var _ = vessel.vesselName;
+            }
+            catch
+            {
+                Log.Debug("Vessel is a destroyed Unity object (fake null)");
+                return false;
+            }
 
             try
             {
@@ -89,8 +120,8 @@ namespace kOS.MechJeb2.Addon
 
                 if (core == null)
                 {
-                    Log.Error("Cannot find MechJebCore running module");
-                    return;
+                    Log.Debug("Cannot find MechJebCore running module - MechJeb may not be initialized yet");
+                    return false;
                 }
 
                 _mechJebCore = core;
@@ -99,11 +130,12 @@ namespace kOS.MechJeb2.Addon
             catch (Exception e)
             {
                 Log.Exception(e);
-                return;
+                return false;
             }
 
             MechJebController.Instance.Initialize(_mechJebCore, force);
             _isCoreInitialized = true;
+            return true;
         }
     }
 }

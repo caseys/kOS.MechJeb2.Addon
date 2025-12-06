@@ -4,6 +4,7 @@ using kOS.MechJeb2.Addon.Core;
 using kOS.MechJeb2.Addon.Utils;
 using kOS.Safe.Encapsulation;
 using kOS.Safe.Encapsulation.Suffixes;
+using kOS.Safe.Exceptions;
 using kOS.Safe.Utilities;
 
 namespace kOS.MechJeb2.Addon.Wrapeers
@@ -17,13 +18,40 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private MechJebNodeExecutorWrapper _nodeExecutorWrapper;
         private MechJebManeuverPlannerWrapper _maneuverPlannerWrapper;
 
+        /// <summary>
+        /// Override Initialize to clear all cached child wrappers when force=true.
+        /// This ensures that after a save reload, all child wrappers are recreated
+        /// with fresh module references instead of retaining stale ones.
+        /// </summary>
+        public override void Initialize(object coreInstance, bool force = false)
+        {
+            if (force)
+            {
+                // Clear all cached child wrappers - they hold stale module references
+                // that point to destroyed Unity objects after scene/vessel changes
+                _ascentWrapper = null;
+                _vesselStateWrapper = null;
+                _infoItemsWrapper = null;
+                _nodeExecutorWrapper = null;
+                _maneuverPlannerWrapper = null;
+            }
+            base.Initialize(coreInstance, force);
+        }
+
         public MechJebAscentWrapper Ascent
         {
             get
             {
-                if(_ascentWrapper != null) return _ascentWrapper;
-                _ascentWrapper = new MechJebAscentWrapper();
-                _ascentWrapper.Initialize(this.MasterMechJeb);
+                var master = MasterMechJeb;
+                if (master == null)
+                {
+                    // MasterMechJeb is null - MechJeb not ready yet
+                    // Throw exception instead of returning broken wrapper
+                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
+                }
+                if(_ascentWrapper != null && _ascentWrapper.Initialized) return _ascentWrapper;
+                _ascentWrapper ??= new MechJebAscentWrapper();
+                _ascentWrapper.Initialize(master);
                 return _ascentWrapper;
             }
         }
@@ -31,9 +59,14 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public VesselStateWrapper VesselState {
             get
             {
-                if(_vesselStateWrapper != null) return _vesselStateWrapper;
-                _vesselStateWrapper = new VesselStateWrapper();
-                _vesselStateWrapper.Initialize(this.MasterMechJeb);
+                var master = MasterMechJeb;
+                if (master == null)
+                {
+                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
+                }
+                if(_vesselStateWrapper != null && _vesselStateWrapper.Initialized) return _vesselStateWrapper;
+                _vesselStateWrapper ??= new VesselStateWrapper();
+                _vesselStateWrapper.Initialize(master);
                 return _vesselStateWrapper;
             }
         }
@@ -42,9 +75,14 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebInfoItemsWrapper InfoItems {
             get
             {
-                if(_infoItemsWrapper != null) return _infoItemsWrapper;
-                _infoItemsWrapper = new MechJebInfoItemsWrapper();
-                _infoItemsWrapper.Initialize(this.MasterMechJeb);
+                var master = MasterMechJeb;
+                if (master == null)
+                {
+                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
+                }
+                if(_infoItemsWrapper != null && _infoItemsWrapper.Initialized) return _infoItemsWrapper;
+                _infoItemsWrapper ??= new MechJebInfoItemsWrapper();
+                _infoItemsWrapper.Initialize(master);
                 return _infoItemsWrapper;
             } }
 
@@ -52,9 +90,14 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebNodeExecutorWrapper NodeExecutor {
             get
             {
-                if(_nodeExecutorWrapper != null) return _nodeExecutorWrapper;
-                _nodeExecutorWrapper = new MechJebNodeExecutorWrapper();
-                _nodeExecutorWrapper.Initialize(this.MasterMechJeb);
+                var master = MasterMechJeb;
+                if (master == null)
+                {
+                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
+                }
+                if(_nodeExecutorWrapper != null && _nodeExecutorWrapper.Initialized) return _nodeExecutorWrapper;
+                _nodeExecutorWrapper ??= new MechJebNodeExecutorWrapper();
+                _nodeExecutorWrapper.Initialize(master);
                 return _nodeExecutorWrapper;
             } }
 
@@ -62,9 +105,14 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebManeuverPlannerWrapper ManeuverPlanner {
             get
             {
-                if(_maneuverPlannerWrapper != null) return _maneuverPlannerWrapper;
-                _maneuverPlannerWrapper = new MechJebManeuverPlannerWrapper();
-                _maneuverPlannerWrapper.Initialize(this.MasterMechJeb);
+                var master = MasterMechJeb;
+                if (master == null)
+                {
+                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
+                }
+                if(_maneuverPlannerWrapper != null && _maneuverPlannerWrapper.Initialized) return _maneuverPlannerWrapper;
+                _maneuverPlannerWrapper ??= new MechJebManeuverPlannerWrapper();
+                _maneuverPlannerWrapper.Initialize(master);
                 return _maneuverPlannerWrapper;
             } }
 
