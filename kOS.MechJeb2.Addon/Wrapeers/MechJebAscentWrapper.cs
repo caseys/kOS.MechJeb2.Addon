@@ -28,11 +28,13 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private Func<object, object> _usersGetter;
         private Action<object, object> _usersAdd;
         private Action<object, object> _usersRemove;
+        private Func<object, int> _usersCountGetter; // Get count of users in the pool (Users.Count > 0 means enabled)
         private readonly object _userIdentity = new object(); // Sentinel object to identify this wrapper as a user
 
         protected override void BindObject()
         {
             var masterMechJeb = MasterMechJeb;
+
             _ascentSettingsGetter = Member(masterMechJeb, "AscentSettings").GetField<object>();
             _stagingControllerGetter = Member(masterMechJeb, "Staging").GetField<object>();
             _thrustControllerGetter = Member(masterMechJeb, "Thrust").GetField<object>();
@@ -45,8 +47,8 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             var nodeExecutor = NodeExecutor;
             var autopilot = Autopilot;
 
+            // Bind GetEnabled as primary check, OR'd with Users.Count for GUI engagement detection
             GetEnabled = Member(autopilot, nameof(Enabled)).GetProp<bool>();
-            SetEnabled = Member(autopilot, nameof(Enabled)).SetProp<bool>();
 
             // Bind to Users pool for proper autopilot engagement
             // MechJeb GUI uses _autopilot.Users.Add(this) to engage, not Enabled = true directly
@@ -55,6 +57,17 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             var users = _usersGetter(autopilot);
             _usersAdd = Reflect.OnType(users.GetType()).Method("Add").WithArgs(typeof(object)).AsAction();
             _usersRemove = Reflect.OnType(users.GetType()).Method("Remove").WithArgs(typeof(object)).AsAction();
+
+            // Try to get Count property for accurate enabled state (Users.Count > 0 means enabled)
+            // Fall back to GetEnabled if Users collection doesn't have Count (different MJ version)
+            try
+            {
+                _usersCountGetter = Reflect.OnType(users.GetType()).Property("Count").AsGetter<int>();
+            }
+            catch
+            {
+                _usersCountGetter = null; // Will fall back to GetEnabled in the getter
+            }
 
             (GetDesiredAltitudeDouble, SetDesiredAltitude) =
                 BindEditable<double>(ascentSettings, "DesiredOrbitAltitude");
@@ -372,19 +385,26 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
         public BooleanValue Enabled
         {
-            get =>
-                Initialized
-                    ? new BooleanValue(GetEnabled(_autopilotGetter(MasterMechJeb)))
-                    : throw new KOSException("Cannot get Enabled property of not initialized MechJebAscentWrapper");
+            get
+            {
+                var autopilot = _autopilotGetter(MasterMechJeb);
+
+                // Users.Count > 0 is the ground truth for whether autopilot is engaged
+                // (MechJeb GUI uses Users.Add() to engage, which doesn't set Enabled property)
+                if (_usersCountGetter != null)
+                {
+                    var users = _usersGetter(autopilot);
+                    return new BooleanValue(_usersCountGetter(users) > 0);
+                }
+
+                // Fallback for MechJeb versions where Users.Count isn't accessible
+                return new BooleanValue(GetEnabled(autopilot));
+            }
             set
             {
-                if (!Initialized) return;
-
                 var autopilot = _autopilotGetter(MasterMechJeb);
                 var users = _usersGetter(autopilot);
 
-                // Use Users.Add/Remove like MechJeb GUI does, instead of setting Enabled directly
-                // This properly engages/disengages the autopilot
                 if (value)
                     _usersAdd(users, _userIdentity);
                 else
@@ -395,8 +415,8 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
         public int AscentType => GetAscentTypeInteger(AscentSettings);
 
+        // Primary enabled check via Enabled property; OR'd with Users.Count > 0 for GUI engagement detection
         private Func<object, bool> GetEnabled { get; set; }
-        private Action<object, bool> SetEnabled { get; set; }
 
         private Func<object, double> GetDesiredAltitudeDouble { get; set; }
 
