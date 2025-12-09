@@ -79,8 +79,9 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         {
             return ExecuteOperation("OperationCourseCorrection", null, op =>
             {
-                // MechJeb expects CourseCorrectFinalPeA in kilometers, not meters
-                SetEditableOnOperation(op, "CourseCorrectFinalPeA", (double)finalPeA / 1000.0);
+                // MechJeb's CourseCorrectFinalPeA.Val is in meters (EditableDoubleMult uses
+                // multiplier only for GUI display, internal Val is always meters)
+                SetEditableOnOperation(op, "CourseCorrectFinalPeA", (double)finalPeA);
             });
         }
 

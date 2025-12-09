@@ -1,58 +1,65 @@
 #!/bin/bash
-# Wait for kOS to be initialized on a loaded vessel
-# Usage: ./wait-for-kos-vessel.sh [timeout]
-# Returns 0 if kOS ready, 1 if timeout or error
+# Wait for kOS vessel initialization after save load
+# Usage: ./wait-for-kos-vessel.sh [max_wait_seconds] [start_line]
 #
-# Examples:
-#   ./wait-for-kos-vessel.sh           # Wait up to 3 minutes (default)
-#   ./wait-for-kos-vessel.sh 60        # Wait up to 1 minute
+# This script watches the KSP Player.log for the kOS initialization
+# pattern that indicates a vessel with kOS parts has loaded and is ready.
+#
+# The pattern "kOS: OnStart:.*READY" appears when kOS completes its
+# initialization on a vessel, which happens after a save loads.
+#
+# If start_line is provided, only checks for pattern AFTER that line
+# (used after reload to ignore old initializations).
+#
+# Requires: PLAYER_LOG environment variable (set by config.sh)
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$SCRIPT_DIR/config.sh"
+MAX_WAIT=${1:-60}  # Default 60 seconds
+START_LINE=${2:-0}  # Line to start searching from (0 = check recent logs too)
 
-TIMEOUT=${1:-180}  # Default 3 minutes
+# Source config if not already sourced
+SCRIPT_DIR="${SCRIPT_DIR:-$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )}"
+if [ -z "$PLAYER_LOG" ]; then
+    source "$SCRIPT_DIR/config.sh"
+fi
+
 PATTERN="kOS: OnStart:.*READY"
-LOG_FILE="$KSP_LOG"
-LOOKBACK_LINES=500  # Check last 500 lines for recent initialization
 
-# Verify log file exists
-if [ ! -f "$LOG_FILE" ]; then
-    echo "✗ KSP.log not found at $LOG_FILE"
-    echo "  Make sure KSP is running"
-    exit 1
-fi
-
-echo "Checking for kOS vessel initialization (timeout: ${TIMEOUT}s)..."
-
-# First check if kOS was recently initialized (last 100 lines)
-if tail -n "$LOOKBACK_LINES" "$LOG_FILE" 2>/dev/null | grep -q "$PATTERN"; then
-    echo "✓ kOS is ready on loaded vessel! (found in recent logs)"
-    exit 0
-fi
-
-# Not found in recent logs, watch for new initialization
-echo "  Not found in recent logs, watching for new initialization..."
-
-# Use -F (capital) to follow by name, handles log rotation
-# grep -m 1 exits after first match
-# timeout (gtimeout on macOS, timeout on Linux) kills tail if pattern not found
-if [ -z "$TIMEOUT_CMD" ]; then
-    echo "  ⚠️  No timeout command found, watching indefinitely..."
-    if tail -F "$LOG_FILE" 2>/dev/null | grep -q -m 1 "$PATTERN"; then
-        echo "✓ kOS is ready on loaded vessel!"
+# If no start line provided, check recent logs (fast path for fresh starts)
+if [ "$START_LINE" -eq 0 ]; then
+    if tail -500 "$PLAYER_LOG" 2>/dev/null | grep -q "$PATTERN"; then
+        echo "✓ kOS vessel already initialized"
         exit 0
     fi
-    exit 1
 fi
-if "$TIMEOUT_CMD" "$TIMEOUT" tail -F "$LOG_FILE" 2>/dev/null | grep -q -m 1 "$PATTERN"; then
-    echo "✓ kOS is ready on loaded vessel!"
-    exit 0
-else
-    EXIT_CODE=$?
-    if [ $EXIT_CODE -eq 124 ]; then
-        echo "✗ Timeout: kOS not initialized within ${TIMEOUT} seconds"
+
+# Watch for new initialization using polling (more reliable than tail -F with timeout)
+echo "Waiting for kOS vessel initialization (max ${MAX_WAIT}s)..."
+
+ELAPSED=0
+POLL_INTERVAL=2
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    # Check for pattern after START_LINE
+    if [ "$START_LINE" -gt 0 ]; then
+        # Only check lines after START_LINE
+        if tail -n +"$START_LINE" "$PLAYER_LOG" 2>/dev/null | grep -q "$PATTERN"; then
+            echo "✓ kOS vessel initialized (${ELAPSED}s)"
+            exit 0
+        fi
     else
-        echo "✗ Unexpected error (exit code: $EXIT_CODE)"
+        # Check recent logs
+        if tail -500 "$PLAYER_LOG" 2>/dev/null | grep -q "$PATTERN"; then
+            echo "✓ kOS vessel initialized (${ELAPSED}s)"
+            exit 0
+        fi
     fi
-    exit 1
-fi
+
+    sleep $POLL_INTERVAL
+    ELAPSED=$((ELAPSED + POLL_INTERVAL))
+
+    if [ $((ELAPSED % 15)) -eq 0 ]; then
+        echo "  Still waiting... (${ELAPSED}s elapsed)"
+    fi
+done
+
+echo "✗ kOS vessel did not initialize in ${MAX_WAIT}s"
+exit 1

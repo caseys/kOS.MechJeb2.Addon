@@ -3,16 +3,21 @@
 # Usage: ./wait-for-ksp-ready.sh [timeout] [pattern]
 # Returns 0 if pattern found, 1 if timeout or error
 #
+# Optimized for speed:
+# - Checks if KSP already ready FIRST (instant return)
+# - No hardcoded sleep delays
+# - Event-driven log watching with timeout
+#
 # Examples:
-#   ./wait-for-ksp-ready.sh                              # Wait for main menu (default)
-#   ./wait-for-ksp-ready.sh 300 "MAINMENU"               # Wait for main menu with 5min timeout
+#   ./wait-for-ksp-ready.sh                              # Wait for flight scene
+#   ./wait-for-ksp-ready.sh 300 "MAINMENU"               # Wait for main menu
 #   ./wait-for-ksp-ready.sh 60 "SPACECENTER\|FLIGHT"     # Wait for save loaded
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/config.sh"
 
 TIMEOUT=${1:-300}  # Default 5 minutes
-PATTERN=${2:-"to FLIGHT"}  # Default: any transition to FLIGHT scene (AutoLoad: MAINMENU→FLIGHT)
+PATTERN=${2:-"to FLIGHT"}  # Default: transition to FLIGHT scene
 LOG_FILE="$PLAYER_LOG"
 
 # Wait for log file to exist (KSP might not have started yet)
@@ -27,24 +32,18 @@ if [ ! -f "$LOG_FILE" ]; then
     exit 1
 fi
 
-# Wait at least 20 seconds for KSP to load before checking
-# (KSP takes longer than this, but we'll check periodically)
-echo "Waiting 20 seconds for KSP initial load..."
-sleep 20
-
-echo "Watching Player.log for pattern: \"$PATTERN\" (timeout: ${TIMEOUT}s)..."
-
-# First check if pattern already exists in recent log (last 500 lines)
-# This handles the case where KSP is already running
+# FAST PATH: Check if pattern already exists in recent log
+# This handles the case where KSP is already running and ready
 if tail -500 "$LOG_FILE" 2>/dev/null | grep -q "$PATTERN"; then
     echo "✓ Pattern found in recent log! KSP is already ready."
     exit 0
 fi
 
-# Pattern not in recent log, watch for new occurrences
-# Use -F (capital) to follow by name, handles log rotation
-# grep -m 1 exits after first match
-# timeout (gtimeout on macOS, timeout on Linux) kills tail if pattern not found
+# Not ready yet - watch for the pattern
+echo "Watching Player.log for pattern: \"$PATTERN\" (timeout: ${TIMEOUT}s)..."
+
+# Use tail -F to follow log, grep -m 1 exits on first match
+# timeout kills tail if pattern not found within limit
 if [ -z "$TIMEOUT_CMD" ]; then
     echo "  ⚠️  No timeout command found, watching indefinitely..."
     if tail -F "$LOG_FILE" 2>/dev/null | grep -q -m 1 "$PATTERN"; then
@@ -53,6 +52,7 @@ if [ -z "$TIMEOUT_CMD" ]; then
     fi
     exit 1
 fi
+
 if "$TIMEOUT_CMD" "$TIMEOUT" tail -F "$LOG_FILE" 2>/dev/null | grep -q -m 1 "$PATTERN"; then
     echo "✓ Pattern found! KSP is ready."
     exit 0

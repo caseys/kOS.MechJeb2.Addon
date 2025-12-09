@@ -61,76 +61,132 @@ test_setup() {
 # ksp_init - Initialize KSP (start or reload)
 # Usage: ksp_init "test2"
 # Handles both KSP startup and reload based on whether KSP is already running
+# Environment variables:
+#   CHAINED_TEST=true  - Skip all init, assume previous test left KSP ready
+#   FORCE_RELOAD=true  - Skip fast path, always reload save (for tests that mutate state)
+# Optimizations:
+#   - Same save + KSP running + kOS responding → clear nodes only (fast)
+#   - Different save + KSP running + macOS → AppleScript reload
+#   - Different save + KSP running + non-macOS → kill + restart KSP
+#   - KSP not running → fresh start
 ksp_init() {
     local save_name=${1:-test2}
-    local max_retries=${KSP_INIT_RETRIES:-3}
-    local retry_count=0
+    local last_save=""
 
-    # Check if KSP is already running
+    # Chained mode: skip all initialization, previous test left KSP in required state
+    if [ "${CHAINED_TEST:-}" = "true" ]; then
+        echo "Step 0: Chained test mode - using existing KSP state..." | tee -a "$RUN_LOG"
+        echo "" | tee -a "$RUN_LOG"
+        return 0
+    fi
+
+    # Read last loaded save
+    if [ -f "$LAST_SAVE_FILE" ]; then
+        last_save=$(cat "$LAST_SAVE_FILE" 2>/dev/null || true)
+    fi
+
     if pgrep -q KSP; then
-        echo "Step 0: KSP running - reloading save..." | tee -a "$RUN_LOG"
-        "$SCRIPT_DIR/write-autoload-config.sh" "$save_name"
-        "$SCRIPT_DIR/LoadSaveKSP.scpt" "$save_name" > /tmp/ksp-reload.log 2>&1
+        # KSP is running
+        if [ "$save_name" = "$last_save" ] && [ "${FORCE_RELOAD:-}" != "true" ]; then
+            # Same save - just clear nodes (no reload needed)
+            echo "Step 0: Same save '$save_name' - clearing nodes only..." | tee -a "$RUN_LOG"
 
-        # Retry vessel init with max retries
-        while [ $retry_count -lt $max_retries ]; do
-            if "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60; then
-                break
-            fi
-            retry_count=$((retry_count + 1))
-            if [ $retry_count -lt $max_retries ]; then
-                echo "  ⚠️  Vessel initialization timeout, retrying ($retry_count/$max_retries)..." | tee -a "$RUN_LOG"
-                sleep 10
-            fi
-        done
+            # Shutdown daemon to force fresh connection
+            npm run --prefix "$KSP_MCP_DIR" --silent daemon shutdown >/dev/null 2>&1 || true
 
-        if [ $retry_count -ge $max_retries ]; then
-            echo "✗ Vessel initialization failed after $max_retries attempts" | tee -a "$RUN_LOG"
-            exit 1
+            if "$SCRIPT_DIR/wait-for-kos.sh" 30; then
+                if "$SCRIPT_DIR/clear-nodes.sh" 2>&1; then
+                    echo "" | tee -a "$RUN_LOG"
+                    return 0
+                fi
+                # Node clearing failed, fall through to reload
+                echo "  Node clearing failed, falling back to reload..." | tee -a "$RUN_LOG"
+            else
+                echo "  kOS not responding, falling back to reload..." | tee -a "$RUN_LOG"
+            fi
+        fi
+
+        # Different save (or kOS not responding) - need to reload
+        if [ "$IS_MACOS" = "true" ]; then
+            # macOS: Use AppleScript hot reload
+            echo "Step 0: KSP running - reloading save '$save_name'..." | tee -a "$RUN_LOG"
+
+            # Shutdown daemon before reload to force fresh connection after
+            npm run --prefix "$KSP_MCP_DIR" --silent daemon shutdown >/dev/null 2>&1 || true
+
+            # Record current log position BEFORE reload (to detect NEW initialization)
+            local log_lines_before=$(wc -l < "$PLAYER_LOG" 2>/dev/null || echo 0)
+            local start_after=$((log_lines_before + 1))
+
+            "$SCRIPT_DIR/write-autoload-config.sh" "$save_name"
+            "$SCRIPT_DIR/LoadSaveKSP.scpt" "$save_name" > /tmp/ksp-reload.log 2>&1
+
+            # Wait for kOS vessel to initialize on the NEW save
+            echo "  Waiting for vessel initialization..." | tee -a "$RUN_LOG"
+            if ! "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60 "$start_after"; then
+                echo "  ⚠️ Vessel initialization timeout" | tee -a "$RUN_LOG"
+                exit 1
+            fi
+
+            # Also verify kOS telnet is responding
+            if ! "$SCRIPT_DIR/wait-for-kos.sh" 30; then
+                echo "  ⚠️ kOS telnet timeout" | tee -a "$RUN_LOG"
+                exit 1
+            fi
+
+            # Record loaded save
+            echo "$save_name" > "$LAST_SAVE_FILE"
+        else
+            # Non-macOS: Kill and restart KSP (AppleScript not available)
+            echo "Step 0: KSP running, different save needed - restarting KSP..." | tee -a "$RUN_LOG"
+            echo "  (AppleScript reload not available on $(uname))" | tee -a "$RUN_LOG"
+
+            pkill -9 KSP 2>/dev/null || true
+            sleep 3
+
+            # Fresh start
+            _ksp_fresh_start "$save_name"
         fi
     else
-        echo "Step 0: Starting KSP with AutoLoad..." | tee -a "$RUN_LOG"
-        "$SCRIPT_DIR/start-ksp-autoload.sh" "$save_name" > /tmp/ksp-startup.log 2>&1 &
-
-        # Wait for flight scene (save auto-loads directly)
-        "$SCRIPT_DIR/wait-for-ksp-ready.sh" $KSP_STARTUP_WAIT || {
-            echo "✗ KSP startup timeout" | tee -a "$RUN_LOG"
-            exit 1
-        }
-
-        # Retry vessel init with max retries
-        while [ $retry_count -lt $max_retries ]; do
-            if "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60; then
-                break
-            fi
-            retry_count=$((retry_count + 1))
-            if [ $retry_count -lt $max_retries ]; then
-                echo "  ⚠️  Vessel initialization timeout, retrying ($retry_count/$max_retries)..." | tee -a "$RUN_LOG"
-                sleep 10
-            fi
-        done
-
-        if [ $retry_count -ge $max_retries ]; then
-            echo "✗ Vessel initialization failed after $max_retries attempts" | tee -a "$RUN_LOG"
-            exit 1
-        fi
+        # KSP not running - fresh start
+        _ksp_fresh_start "$save_name"
     fi
 
     echo "" | tee -a "$RUN_LOG"
 }
 
-# kos_ready - Wait for kOS telnet server
+# Internal helper for fresh KSP start
+_ksp_fresh_start() {
+    local save_name=$1
+
+    echo "Step 0: Starting KSP with AutoLoad..." | tee -a "$RUN_LOG"
+    "$SCRIPT_DIR/start-ksp-autoload.sh" "$save_name" > /tmp/ksp-startup.log 2>&1 &
+
+    # Wait for flight scene (save auto-loads directly)
+    "$SCRIPT_DIR/wait-for-ksp-ready.sh" $KSP_STARTUP_WAIT || {
+        echo "✗ KSP startup timeout" | tee -a "$RUN_LOG"
+        exit 1
+    }
+
+    # Wait for kOS vessel initialization
+    if ! "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60; then
+        echo "✗ Vessel initialization timeout" | tee -a "$RUN_LOG"
+        exit 1
+    fi
+
+    # Record loaded save
+    echo "$save_name" > "$LAST_SAVE_FILE"
+}
+
+# kos_ready - Wait for kOS telnet to be ready
 # Usage: kos_ready
-# Waits for kOS telnet server to be ready and accessible
+# Uses fast nc port check on 127.0.0.1:5410 - no daemon overhead
 kos_ready() {
-    echo "Step 1: Waiting for kOS telnet server..." | tee -a "$RUN_LOG"
+    echo "Step 1: Waiting for kOS..." | tee -a "$RUN_LOG"
 
-    # KSP_MCP_DIR is set by config.sh
-    cd "$KSP_MCP_DIR"
-
-    # Wait for kOS telnet server
+    # Wait for kOS telnet to be ready (fast nc port check)
     if ! "$SCRIPT_DIR/wait-for-kos.sh" ${MAX_WAIT:-180}; then
-        echo "✗ kOS telnet server failed to start" | tee -a "$RUN_LOG"
+        echo "✗ kOS failed to become ready" | tee -a "$RUN_LOG"
         exit 1
     fi
 
@@ -162,5 +218,6 @@ test_success() {
 # Export all functions so they're available in calling scripts
 export -f test_setup
 export -f ksp_init
+export -f _ksp_fresh_start
 export -f kos_ready
 export -f test_success

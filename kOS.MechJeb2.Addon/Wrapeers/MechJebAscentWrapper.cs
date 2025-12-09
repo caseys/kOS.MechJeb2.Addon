@@ -22,6 +22,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private Func<object, object> _usersGetter;
         private Action<object, object> _usersAdd;
         private Action<object, object> _usersRemove;
+        private Func<object, int> _usersCountGetter; // Get count of users in the pool (Users.Count > 0 means enabled)
         private readonly object _userIdentity = new object(); // Sentinel object to identify this wrapper as a user
 
         // Track whether binding succeeded (MasterMechJeb may be null after loading a saved game)
@@ -58,6 +59,8 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             var users = _usersGetter(autopilot);
             _usersAdd = Reflect.OnType(users.GetType()).Method("Add").WithArgs(typeof(object)).AsAction();
             _usersRemove = Reflect.OnType(users.GetType()).Method("Remove").WithArgs(typeof(object)).AsAction();
+            // Get Count property to check if autopilot is enabled (Users.Count > 0 means enabled)
+            _usersCountGetter = Reflect.OnType(users.GetType()).Property("Count").AsGetter<int>();
 
             (GetDesiredAltitudeDouble, SetDesiredAltitude) =
                 BindEditable<double>(ascentSettings, "DesiredOrbitAltitude");
@@ -382,6 +385,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             var master = MasterMechJeb;
             if (master == null)
             {
+                UnityEngine.Debug.Log("[kOS.MechJeb2.Addon] ValidateMasterMechJebNotStale: TRIGGERED - MasterMechJeb is null!");
                 throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. " +
                     "Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
             }
@@ -390,12 +394,18 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             {
                 if (master.ToString() == "null")
                 {
+                    UnityEngine.Debug.Log("[kOS.MechJeb2.Addon] ValidateMasterMechJebNotStale: TRIGGERED - MasterMechJeb.ToString() == 'null' (Unity fake-null)!");
                     throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. " +
                         "Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
                 }
             }
-            catch (Exception)
+            catch (KOSException)
             {
+                throw; // Re-throw our own exception
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.Log($"[kOS.MechJeb2.Addon] ValidateMasterMechJebNotStale: TRIGGERED - ToString() threw exception: {ex.Message}");
                 throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. " +
                     "Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
             }
@@ -414,7 +424,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 // Validate MasterMechJeb isn't stale before use
                 ValidateMasterMechJebNotStale();
 
-                return new BooleanValue(GetEnabled(_autopilotGetter(MasterMechJeb)));
+                // When autopilot is enabled, Users.Add() is called; when disabled, Users.Remove()
+                // Note: There is a Enabled property on MechJebs ComputerModule, but it's not working how I expect
+                var autopilot = _autopilotGetter(MasterMechJeb);
+                var users = _usersGetter(autopilot);
+                return new BooleanValue(_usersCountGetter(users) > 0);
             }
             set
             {

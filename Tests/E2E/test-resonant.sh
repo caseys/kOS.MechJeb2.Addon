@@ -11,21 +11,22 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/with-test-helpers.sh"
 
 # Test-specific configuration
-TARGET_BODY="Mun"
+# Resonant orbit creates an orbit with period = (num/denom) * current period
+# 2:1 ratio means new period = 2x current period (higher apoapsis)
 ORBIT_NUMERATOR=2
-ORBIT_DENOMINATOR=1  # 2:1 resonance (vessel orbits twice while Mun orbits once)
+ORBIT_DENOMINATOR=1
 
 test_setup "RESONANT ORBIT"
 ksp_init "test2"
 kos_ready
 
 echo "Step 2: Testing RESONANT ORBIT..."
-echo "  Creating ${ORBIT_NUMERATOR}:${ORBIT_DENOMINATOR} resonance with ${TARGET_BODY}..."
+echo "  Creating ${ORBIT_NUMERATOR}:${ORBIT_DENOMINATOR} resonance (period ratio)..."
 # The resonant-orbit script will:
-# 1. Set target
-# 2. Create resonant orbit node
+# 1. Query current orbital period
+# 2. Create resonant orbit node for specified ratio
 # 3. Verify node was created
-npm run resonant-orbit $TARGET_BODY $ORBIT_NUMERATOR $ORBIT_DENOMINATOR > /tmp/resonant-test-output.log 2>&1
+npm run resonant-orbit $ORBIT_NUMERATOR $ORBIT_DENOMINATOR > /tmp/resonant-test-output.log 2>&1
 
 # Validate node creation using helper
 source "$SCRIPT_DIR/validate-node-creation.sh"
@@ -46,4 +47,4 @@ grep "Node created" /tmp/resonant-test-output.log || true
 grep -A 1 "NV:" /tmp/resonant-test-output.log || true
 echo "  ---"
 
-test_success "RESONANT ORBIT" "The operation successfully created a ${ORBIT_NUMERATOR}:${ORBIT_DENOMINATOR} resonant orbit with ${TARGET_BODY}."
+test_success "RESONANT ORBIT" "The operation successfully created a ${ORBIT_NUMERATOR}:${ORBIT_DENOMINATOR} resonant orbit."

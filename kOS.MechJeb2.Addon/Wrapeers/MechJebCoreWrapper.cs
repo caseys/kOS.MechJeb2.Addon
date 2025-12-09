@@ -18,6 +18,18 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private MechJebNodeExecutorWrapper _nodeExecutorWrapper;
         private MechJebManeuverPlannerWrapper _maneuverPlannerWrapper;
 
+        private const string NotReadyMessage =
+            "MechJeb is not ready yet. This can happen after loading a saved game. " +
+            "Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.";
+
+        private object GetMasterOrThrow()
+        {
+            var master = MasterMechJeb;
+            if (master == null)
+                throw new KOSException(NotReadyMessage);
+            return master;
+        }
+
         /// <summary>
         /// Override Initialize to clear all cached child wrappers when force=true.
         /// This ensures that after a save reload, all child wrappers are recreated
@@ -42,13 +54,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         {
             get
             {
-                var master = MasterMechJeb;
-                if (master == null)
-                {
-                    // MasterMechJeb is null - MechJeb not ready yet
-                    // Throw exception instead of returning broken wrapper
-                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
-                }
+                var master = GetMasterOrThrow();
                 if(_ascentWrapper != null && _ascentWrapper.Initialized) return _ascentWrapper;
                 _ascentWrapper ??= new MechJebAscentWrapper();
                 _ascentWrapper.Initialize(master);
@@ -59,11 +65,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public VesselStateWrapper VesselState {
             get
             {
-                var master = MasterMechJeb;
-                if (master == null)
-                {
-                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
-                }
+                var master = GetMasterOrThrow();
                 if(_vesselStateWrapper != null && _vesselStateWrapper.Initialized) return _vesselStateWrapper;
                 _vesselStateWrapper ??= new VesselStateWrapper();
                 _vesselStateWrapper.Initialize(master);
@@ -75,11 +77,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebInfoItemsWrapper InfoItems {
             get
             {
-                var master = MasterMechJeb;
-                if (master == null)
-                {
-                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
-                }
+                var master = GetMasterOrThrow();
                 if(_infoItemsWrapper != null && _infoItemsWrapper.Initialized) return _infoItemsWrapper;
                 _infoItemsWrapper ??= new MechJebInfoItemsWrapper();
                 _infoItemsWrapper.Initialize(master);
@@ -90,11 +88,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebNodeExecutorWrapper NodeExecutor {
             get
             {
-                var master = MasterMechJeb;
-                if (master == null)
-                {
-                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
-                }
+                var master = GetMasterOrThrow();
                 if(_nodeExecutorWrapper != null && _nodeExecutorWrapper.Initialized) return _nodeExecutorWrapper;
                 _nodeExecutorWrapper ??= new MechJebNodeExecutorWrapper();
                 _nodeExecutorWrapper.Initialize(master);
@@ -105,11 +99,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         public MechJebManeuverPlannerWrapper ManeuverPlanner {
             get
             {
-                var master = MasterMechJeb;
-                if (master == null)
-                {
-                    throw new KOSException("MechJeb is not ready yet. This can happen after loading a saved game. Please wait a moment and try again, or use ADDONS:MJ:INIT(TRUE) to force reinitialization.");
-                }
+                var master = GetMasterOrThrow();
                 if(_maneuverPlannerWrapper != null && _maneuverPlannerWrapper.Initialized) return _maneuverPlannerWrapper;
                 _maneuverPlannerWrapper ??= new MechJebManeuverPlannerWrapper();
                 _maneuverPlannerWrapper.Initialize(master);

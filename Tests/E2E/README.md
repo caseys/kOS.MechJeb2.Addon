@@ -39,11 +39,15 @@ Tests automatically:
   - Default: Waits for FLIGHT scene (AutoLoad direct-to-flight)
   - Uses active log monitoring (no fixed delays)
 
-- **wait-for-kos.sh** - Wait for kOS telnet server (port 5410)
+- **wait-for-kos.sh** - Wait for kOS telnet to be ready
+  - Fast `nc` port check on 127.0.0.1:5410
+  - Polls until telnet responds with "Choose a CPU"
+  - Low overhead (~10ms per check)
 
 - **wait-for-kos-vessel.sh** - Wait for kOS vessel initialization
-  - Checks log for `kOS: OnStart:.*READY` pattern
-  - Smart: Checks recent history first, then watches for new
+  - Watches Player.log for `kOS: OnStart:.*READY` pattern
+  - Accepts optional `start_line` parameter for reload scenarios
+  - When start_line provided, only checks lines AFTER that position
 
 ## Save Files
 
@@ -55,38 +59,37 @@ Test saves are in: `/Volumes/Flatty/.../saves/a_test/`
 
 ## Test Script Pattern
 
-All test scripts follow this pattern:
+All test scripts use the shared helpers from `with-test-helpers.sh`:
 
 ```bash
-# Check if KSP is already running
-if pgrep -q KSP; then
-    echo "KSP running - reloading save..."
-    "$SCRIPT_DIR/write-autoload-config.sh" test2
-    "$SCRIPT_DIR/LoadSaveKSP.scpt" test2 > /tmp/ksp-reload.log 2>&1
-    if ! "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60; then
-        echo "  ⚠️  Vessel initialization timeout, falling back to extended wait..."
-        sleep 60
-    fi
-else
-    echo "Starting KSP with AutoLoad..."
-    "$SCRIPT_DIR/start-ksp-autoload.sh" test2 > /tmp/ksp-startup.log 2>&1 &
+#!/bin/bash
+set -e
 
-    # Wait for flight scene (save auto-loads directly)
-    "$SCRIPT_DIR/wait-for-ksp-ready.sh" 420 || {
-        echo "✗ KSP startup timeout"
-        exit 1
-    }
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/with-test-helpers.sh"
 
-    # Wait for vessel and kOS to initialize
-    if ! "$SCRIPT_DIR/wait-for-kos-vessel.sh" 60; then
-        echo "  ⚠️  Vessel initialization timeout, falling back to extended wait..."
-        sleep 60
-    fi
-fi
+# Initialize test environment
+test_setup "MY_TEST"
 
-# Wait for kOS telnet
-"$SCRIPT_DIR/wait-for-kos.sh" 180 || exit 1
+# Start/reload KSP with specified save (always reloads to ensure correct save)
+# Waits for kOS vessel initialization after reload
+ksp_init "test2"
+
+# Wait for kOS telnet to be ready (fast nc port check)
+kos_ready
+
+# Run your test operations
+echo "Step 2: Running test..."
+npm run your-test-command > /tmp/test-output.log 2>&1
+
+# Report success
+test_success "MY_TEST" "Test completed successfully"
 ```
+
+The helpers handle:
+- **ksp_init**: Reloads save, waits for vessel initialization via Player.log
+- **kos_ready**: Fast nc port check on 127.0.0.1:5410 (no daemon)
+- **wait-for-kos-vessel.sh**: Watches for `kOS: OnStart:.*READY` in logs
 
 ## Troubleshooting
 
@@ -105,8 +108,8 @@ savegame = test2
 ### Test times out
 Check which step failed:
 - "KSP startup timeout" → KSP didn't start
-- "kOS telnet failed" → kOS not installed/loaded
-- "Vessel timeout" → Save didn't load properly
+- "kOS failed to become ready" → kOS telnet not responding (port 5410)
+- "Vessel initialization timeout" → Save didn't load or kOS didn't initialize
 
 ### Verify save exists
 ```bash

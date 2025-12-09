@@ -68,3 +68,10 @@ if [ -z "$KSP_MCP_DIR" ]; then
     fi
 fi
 export KSP_MCP_DIR
+
+# Platform detection (uses existing $(uname) check)
+export IS_MACOS=false
+[ "$(uname)" = "Darwin" ] && export IS_MACOS=true
+
+# State tracking for save reuse optimization
+export LAST_SAVE_FILE="/tmp/ksp-e2e-last-save"

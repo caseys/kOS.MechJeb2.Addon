@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch KSP with AutoLoad (replaces StartKSP.scpt)
+# Launch KSP with AutoLoad (cross-platform)
 # Usage: ./start-ksp-autoload.sh [save_name]
 # Example: ./start-ksp-autoload.sh test1  (for ascent)
 #          ./start-ksp-autoload.sh test2  (for maneuvers)
@@ -20,11 +20,15 @@ echo "========================================="
 echo "Step 1: Writing AutoLoad.cfg..."
 "$SCRIPT_DIR/write-autoload-config.sh" "$SAVE_NAME"
 
-# Step 2: Quit KSP if running
+# Step 2: Quit KSP if running (cross-platform)
 if pgrep -q KSP; then
     echo "Step 2: Quitting existing KSP..."
-    osascript -e 'tell application "KSP" to quit' 2>/dev/null || true
-    sleep 5
+    if [ "$IS_MACOS" = "true" ]; then
+        # macOS: Try graceful quit first
+        osascript -e 'tell application "KSP" to quit' 2>/dev/null || true
+        sleep 5
+    fi
+    # All platforms: Force kill if still running
     pgrep -q KSP && pkill -9 KSP && sleep 2
 fi
 
@@ -40,8 +44,17 @@ if [ ! -f "$KSP_SAVES/$SAVE_DIR/$SAVE_NAME.sfs" ]; then
 fi
 echo "  ✓ Save verified"
 
-# Step 5: Launch KSP
+# Step 5: Launch KSP (cross-platform)
 echo "Step 5: Launching KSP..."
-open "$KSP_APP"
+if [ "$IS_MACOS" = "true" ]; then
+    # macOS: Use 'open' for .app bundles
+    open "$KSP_APP"
+else
+    # Linux/other: Run executable directly in background
+    "$KSP_APP" &
+fi
 echo "  KSP launched! AutoLoad will load save automatically."
 echo "  Estimated time to flight scene: 3-5 minutes"
+
+# Step 6: Record loaded save (for save reuse optimization)
+echo "$SAVE_NAME" > "$LAST_SAVE_FILE"
