@@ -4,11 +4,11 @@
  * Provides shared kOS connection and MechJeb program instances for tests.
  */
 
-import { KosConnection } from 'ksp-mcp/transport';
+import { ensureConnected } from 'ksp-mcp';
+import type { KosConnection } from 'ksp-mcp/transport';
 import { ManeuverProgram, AscentProgram } from 'ksp-mcp/mechjeb';
 import { KOS_CPU_LABEL, TIMEOUTS, SAVES, LAST_TEST_FILE } from '../config.js';
 import { initializeKsp, recordLastSave, isKspRunning } from './ksp-launcher.js';
-import { waitForKosReady } from './kos-waiter.js';
 import { validateEnvironment, formatValidationResult } from '../validate-environment.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 
@@ -21,13 +21,11 @@ let ascent: AscentProgram | null = null;
 let currentSave: string | null = null;
 
 /**
- * Get or create the shared kOS connection
+ * Get the shared kOS connection (uses ksp-mcp's managed connection)
  */
-export async function getConnection(): Promise<KosConnection> {
-  if (!conn || !conn.isConnected()) {
-    conn = new KosConnection({ cpuLabel: KOS_CPU_LABEL });
-    await conn.connect();
-  }
+export async function getTestConnection(): Promise<KosConnection> {
+  // Use ksp-mcp's shared connection with our parser fixes
+  conn = await ensureConnected({ cpuLabel: KOS_CPU_LABEL });
   return conn;
 }
 
@@ -36,7 +34,7 @@ export async function getConnection(): Promise<KosConnection> {
  */
 export async function getManeuverProgram(): Promise<ManeuverProgram> {
   if (!maneuver) {
-    const connection = await getConnection();
+    const connection = await getTestConnection();
     maneuver = new ManeuverProgram(connection);
   }
   return maneuver;
@@ -47,7 +45,7 @@ export async function getManeuverProgram(): Promise<ManeuverProgram> {
  */
 export async function getAscentProgram(): Promise<AscentProgram> {
   if (!ascent) {
-    const connection = await getConnection();
+    const connection = await getTestConnection();
     ascent = new AscentProgram(connection);
   }
   return ascent;
@@ -111,31 +109,28 @@ export async function ensureKspReady(
         maneuver = null;
         ascent = null;
       }
-      await getConnection();
+      await getTestConnection();
       return;
     }
   }
 
   // Initialize KSP (handles save switching and same-save optimization)
+  // This establishes the connection via waitForKos()
   await initializeKsp(saveName, initOptions);
   currentSave = saveName;
 
-  // Reconnect if needed
-  if (conn && !conn.isConnected()) {
-    conn = null;
-    maneuver = null;
-    ascent = null;
-  }
-
-  // Ensure connection is ready
-  await getConnection();
+  // Reset cached instances - they may hold stale connection references
+  // The connection itself is managed by ksp-mcp singleton
+  conn = null;
+  maneuver = null;
+  ascent = null;
 }
 
 /**
  * Clear ALL existing maneuver nodes
  */
 export async function clearNodes(): Promise<void> {
-  const connection = await getConnection();
+  const connection = await getTestConnection();
   // Remove all nodes, not just NEXTNODE (Hohmann with capture creates multiple nodes)
   await connection.execute('FOR N IN ALLNODES { REMOVE N. }', 5000).catch(() => {});
 }

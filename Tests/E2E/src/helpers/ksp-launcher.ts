@@ -20,7 +20,7 @@ import {
   saveExists,
 } from '../config.js';
 import { waitForFlightScene } from './log-watcher.js';
-import { waitForKos, delay } from './kos-waiter.js';
+import { waitForKos, delay, isKosReady } from './kos-waiter.js';
 
 /**
  * Check if KSP is currently running
@@ -130,13 +130,13 @@ export function getLastSave(): string | null {
 /**
  * Clear all maneuver nodes via kOS
  *
- * Uses the ksp-mcp daemon to execute: FOR N IN ALLNODES { REMOVE N. }
+ * Uses ksp-mcp library connection (established by isKosReady check).
  */
 export async function clearNodes(): Promise<boolean> {
   try {
-    // Import the daemon client dynamically to avoid circular deps
-    const { execute } = await import('ksp-mcp/daemon');
-    const result = await execute('FOR N IN ALLNODES { REMOVE N. }');
+    const { ensureConnected } = await import('ksp-mcp');
+    const conn = await ensureConnected();
+    const result = await conn.execute('FOR N IN ALLNODES { REMOVE N. }', 5000);
     if (result.success) {
       console.log('  Nodes cleared');
       return true;
@@ -196,7 +196,7 @@ export async function launchKsp(
 /**
  * Reload save in running KSP using KUNIVERSE:QUICKLOADFROM
  *
- * Uses kOS KUNIVERSE API for cross-platform save loading.
+ * Uses ksp-mcp library's quickload function.
  * Falls back to full KSP restart if KUNIVERSE fails.
  *
  * @param saveName Save file to load (quicksave name, not .sfs file)
@@ -210,27 +210,24 @@ export async function reloadSave(saveName: string): Promise<void> {
   }
 
   if (isKspRunning()) {
-    // Use KUNIVERSE:QUICKLOADFROM via ksp-mcp daemon for hot reload
+    // Use KUNIVERSE:QUICKLOADFROM via ksp-mcp library
     console.log('  Using KUNIVERSE:QUICKLOADFROM hot reload...');
 
     try {
-      // Import the daemon client dynamically to avoid circular deps
-      const { execute, shutdown } = await import('ksp-mcp/daemon');
+      const { ensureConnected, quickload, handleDisconnect } = await import('ksp-mcp');
 
-      // Execute the quickload command
-      await execute(`KUNIVERSE:QUICKLOADFROM("${saveName}").`);
+      // Establish connection and execute quickload
+      const conn = await ensureConnected();
+      await quickload(conn, saveName);
       recordLastSave(saveName);
 
-      // Shutdown daemon - connection is stale after scene reload
-      console.log('  Shutting down daemon (connection reset after reload)...');
-      await shutdown();
+      // Force disconnect the ksp-mcp singleton - scene reload will invalidate the kOS session
+      console.log('  Disconnecting (scene reload invalidates kOS session)...');
+      await handleDisconnect();
 
-      // Wait a bit for scene to settle
-      await delay(3000);
-
-      // Wait for kOS telnet to respond with "Choose a CPU" (validates vessel is ready)
+      // Immediately start waiting for kOS to come back instead of a blind delay
       console.log('  Waiting for kOS to be ready...');
-      await waitForKos(TIMEOUTS.VESSEL_INIT);
+      await waitForKos(TIMEOUTS.VESSEL_INIT, 1000);
     } catch (err) {
       console.log(`  Hot reload failed: ${err instanceof Error ? err.message : String(err)}`);
       console.log('  Falling back to restart...');
@@ -239,18 +236,6 @@ export async function reloadSave(saveName: string): Promise<void> {
   } else {
     // KSP not running - fresh start
     await launchKsp(saveName);
-  }
-}
-
-/**
- * Check if kOS telnet is ready (quick TCP check)
- */
-async function isKosReady(): Promise<boolean> {
-  try {
-    await waitForKos(5000); // 5 second quick check
-    return true;
-  } catch {
-    return false;
   }
 }
 
