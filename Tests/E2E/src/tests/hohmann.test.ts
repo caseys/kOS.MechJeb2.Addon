@@ -13,15 +13,19 @@ describe('HOHMANN', () => {
 
   beforeEach(async () => {
     await clearNodes();
+    const maneuver = await getManeuverProgram();
+    await maneuver.clearTarget().catch(() => {});
   });
 
   it('creates Hohmann transfer nodes to Mun', async () => {
     const maneuver = await getManeuverProgram();
+    console.log(`  Has target before set: ${await maneuver.hasTarget()}`);
 
     // Set target to Mun
     console.log('  Setting target to Mun...');
-    const targetSet = await maneuver.setTarget('Mun', 'body');
-    expect(targetSet).toBe(true);
+    const targetResult = await maneuver.setTarget('Mun', 'body');
+    expect(targetResult.success).toBe(true);
+    console.log(`  Target confirmed: ${targetResult.name} (${targetResult.type})`);
 
     // Create Hohmann transfer
     console.log('  Creating Hohmann transfer...');
@@ -37,17 +41,19 @@ describe('HOHMANN', () => {
 
   it('requires target to be set', async () => {
     const maneuver = await getManeuverProgram();
-
-    // Clear any existing target by attempting a transfer without one
-    // This tests the error handling
-    const hasTarget = await maneuver.hasTarget();
-    if (!hasTarget) {
-      console.log('  No target set (expected)');
-      const result = await maneuver.hohmannTransfer();
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('No target');
-    } else {
-      console.log('  Target already set, skipping "no target" test case');
+    console.log('  Clearing target via ManeuverProgram (triple-attempt workaround)...');
+    const clearResult = await maneuver.clearTarget();
+    console.log(`  Target cleared: ${clearResult.cleared} (success: ${clearResult.success})`);
+    if (clearResult.warning) {
+      console.log(`  Warning: ${clearResult.warning}`);
     }
+    const hasTargetAfterClear = await maneuver.hasTarget();
+    console.log(`  hasTarget after clear: ${hasTargetAfterClear}`);
+    expect(hasTargetAfterClear).toBe(false);
+
+    console.log('  No target set (expected)');
+    const result = await maneuver.hohmannTransfer();
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No target');
   });
 });

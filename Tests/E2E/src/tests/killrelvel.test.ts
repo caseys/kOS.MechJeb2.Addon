@@ -21,7 +21,9 @@ describe('KILLRELVEL', () => {
 
     // Set a target (Mun works for testing - will show large velocity difference)
     console.log('  Setting target to Mun...');
-    await maneuver.setTarget('Mun');
+    const targetResult = await maneuver.setTarget('Mun');
+    expect(targetResult.success).toBe(true);
+    console.log(`  Target confirmed: ${targetResult.name} (${targetResult.type})`);
 
     console.log('  Creating kill relative velocity node at closest approach...');
     const result = await maneuver.killRelVel('CLOSEST_APPROACH');
@@ -40,7 +42,9 @@ describe('KILLRELVEL', () => {
     const maneuver = await getManeuverProgram();
 
     console.log('  Setting target to Mun...');
-    await maneuver.setTarget('Mun');
+    const targetResult = await maneuver.setTarget('Mun');
+    expect(targetResult.success).toBe(true);
+    console.log(`  Target confirmed: ${targetResult.name} (${targetResult.type})`);
 
     // Note: KILLRELVEL only supports CLOSEST_APPROACH and X_FROM_NOW
     // PERIAPSIS is not a valid timeRef for this operation

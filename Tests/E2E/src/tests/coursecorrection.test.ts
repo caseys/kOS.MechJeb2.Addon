@@ -25,7 +25,9 @@ describe('COURSECORRECTION', () => {
 
     // First set target and create Hohmann transfer
     console.log('  Setting target to Mun...');
-    await maneuver.setTarget('Mun');
+    const targetResult = await maneuver.setTarget('Mun');
+    expect(targetResult.success).toBe(true);
+    console.log(`  Target confirmed: ${targetResult.name} (${targetResult.type})`);
 
     console.log('  Creating Hohmann transfer node...');
     const hohmannResult = await maneuver.hohmannTransfer();
