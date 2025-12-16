@@ -14,8 +14,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env file from E2E directory
-config({ path: join(__dirname, '..', '.env') });
+// Load .env file from E2E directory (quiet: true suppresses the promotional message)
+config({ path: join(__dirname, '..', '.env'), quiet: true });
 
 // Platform detection
 export const platform = process.platform;

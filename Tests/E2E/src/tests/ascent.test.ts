@@ -10,35 +10,29 @@ import { ensureKspReady, getAscentProgram, recordTestSuccess, SAVES, TIMEOUTS } 
 describe('ASCENT', () => {
   beforeAll(async () => {
     // Use launchpad save for ascent tests
-    // MUST use forceReload - always reload save (via AppleScript if available), never use fast path
-    // because vessel state changes from pad to orbit
+    // MUST use forceReload - always reload save, because vessel state changes from pad to orbit
     await ensureKspReady(SAVES.LAUNCHPAD, { forceReload: true });
   }, TIMEOUTS.KSP_STARTUP);
 
-  it('launches vessel to 100km orbit', async () => {
-    const ascent = await getAscentProgram();
-    const targetAltitude = 100000; // 100km
-    const targetInclination = 0;   // Equatorial
+  describe('to 100km equatorial orbit', () => {
+    // Single long-running operation - cannot be split into separate it() blocks
+    it('launches and reaches orbit', async () => {
+      const ascent = await getAscentProgram();
 
-    console.log(`  Launching to ${targetAltitude / 1000}km x ${targetInclination} deg orbit...`);
-    console.log('  This test will take several minutes.');
+      const handle = await ascent.launchToOrbit({
+        altitude: 100000,
+        inclination: 0
+      });
 
-    // launchToOrbit returns an AscentHandle for monitoring
-    const handle = await ascent.launchToOrbit({
-      altitude: targetAltitude,
-      inclination: targetInclination
-    });
+      expect(handle).toBeDefined();
+      expect(handle.targetAltitude).toBe(100000);
 
-    expect(handle).toBeDefined();
-    expect(handle.targetAltitude).toBe(targetAltitude);
-    console.log(`  Launch initiated successfully (handle: ${handle.id})`);
+      const result = await handle.waitForCompletion();
 
-    // Wait for orbit completion (uses polling)
-    const result = await handle.waitForCompletion();
-    expect(result.success).toBe(true);
-    console.log(`  Final orbit: ${Math.round(result.finalOrbit.apoapsis / 1000)}km x ${Math.round(result.finalOrbit.periapsis / 1000)}km`);
+      expect(result.success).toBe(true);
 
-    // Record success - allows circularize to chain without reload
-    recordTestSuccess('ascent');
-  }, TIMEOUTS.BURN_EXECUTION);
+      // Record success - allows circularize to chain without reload
+      recordTestSuccess('ascent');
+    }, TIMEOUTS.BURN_EXECUTION);
+  });
 });

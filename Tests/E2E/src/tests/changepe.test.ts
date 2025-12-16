@@ -15,34 +15,25 @@ describe('CHANGEPE', () => {
     await clearNodes();
   });
 
-  it('creates node to lower periapsis to 75km', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetPe = 75000; // 75km
+  describe('lower to 75km', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.adjustPeriapsis(75000, 'APOAPSIS');
 
-    console.log(`  Creating node to lower periapsis to ${targetPe / 1000}km...`);
-    const result = await maneuver.adjustPeriapsis(targetPe, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates node to raise periapsis to 100km', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetPe = 100000; // 100km
+  describe('raise to 100km', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.adjustPeriapsis(100000, 'APOAPSIS');
 
-    console.log(`  Creating node to raise periapsis to ${targetPe / 1000}km...`);
-    const result = await maneuver.adjustPeriapsis(targetPe, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    // Note: On a ~110km circular orbit, raising Pe to 100km will have minimal dV
-    // because Pe is already close to the orbit altitude
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      // Note: On a ~110km circular orbit, raising Pe to 100km will have minimal dV
+    });
   });
 });

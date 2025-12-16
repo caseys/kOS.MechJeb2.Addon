@@ -4,6 +4,13 @@
  * Provides shared kOS connection and MechJeb program instances for tests.
  */
 
+// Override console.log to bypass Jest's wrapper (writes to stdout without file/line decoration)
+// Keep console.error untouched so stack traces still include file references
+const originalLog = console.log;
+console.log = (...args: unknown[]) => {
+  process.stdout.write(args.map(a => String(a)).join(' ') + '\n');
+};
+
 import { ensureConnected } from 'ksp-mcp';
 import type { KosConnection } from 'ksp-mcp/transport';
 import { ManeuverProgram, AscentProgram } from 'ksp-mcp/mechjeb';
@@ -137,10 +144,6 @@ export async function clearNodes(): Promise<void> {
 
 // Jest global setup
 beforeAll(async () => {
-  console.log('\n========================================');
-  console.log('E2E Test Suite Starting');
-  console.log('========================================\n');
-
   // Run environment validation first
   const validation = await validateEnvironment();
   if (!validation.valid) {
@@ -157,10 +160,6 @@ beforeAll(async () => {
 
 // Jest global teardown
 afterAll(async () => {
-  console.log('\n========================================');
-  console.log('E2E Test Suite Complete');
-  console.log('========================================\n');
-
   // Disconnect
   if (conn) {
     await conn.disconnect();

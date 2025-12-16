@@ -1,7 +1,7 @@
 /**
  * E2E test for CIRCULARIZE maneuver operation
  *
- * Tests that MechJeb can create a circularization maneuver node at apoapsis.
+ * Tests that MechJeb can create a circularization maneuver node.
  */
 
 import { ensureKspReady, getManeuverProgram, clearNodes, SAVES } from '../helpers/test-setup.js';
@@ -16,31 +16,25 @@ describe('CIRCULARIZE', () => {
     await clearNodes();
   });
 
-  it('creates circularization node at apoapsis', async () => {
-    const maneuver = await getManeuverProgram();
+  describe('at apoapsis', () => {
+    it('creates node', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.circularize('APOAPSIS');
 
-    console.log('  Creating circularization node at apoapsis...');
-    const result = await maneuver.circularize('APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates circularization node at periapsis', async () => {
-    const maneuver = await getManeuverProgram();
+  describe('at periapsis', () => {
+    it('creates node', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.circularize('PERIAPSIS');
 
-    console.log('  Creating circularization node at periapsis...');
-    const result = await maneuver.circularize('PERIAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 });

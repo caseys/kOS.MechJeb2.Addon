@@ -15,31 +15,24 @@ describe('LAN', () => {
     await clearNodes();
   });
 
-  it('creates LAN change node at apoapsis', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetLAN = 90; // 90 degrees
+  describe('change to 90 degrees', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.changeLAN(90, 'APOAPSIS');
 
-    console.log(`  Changing LAN to ${targetLAN} degrees at apoapsis...`);
-    const result = await maneuver.changeLAN(targetLAN, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates LAN change node at periapsis', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetLAN = 180;
+  describe('change to 180 degrees', () => {
+    it('creates node at periapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.changeLAN(180, 'PERIAPSIS');
 
-    console.log(`  Changing LAN to ${targetLAN} degrees at periapsis...`);
-    const result = await maneuver.changeLAN(targetLAN, 'PERIAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+    });
   });
 });

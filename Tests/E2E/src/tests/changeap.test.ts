@@ -15,34 +15,25 @@ describe('CHANGEAP', () => {
     await clearNodes();
   });
 
-  it('creates node to raise apoapsis to 150km', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetAp = 150000; // 150km
+  describe('raise to 150km', () => {
+    it('creates node at periapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.adjustApoapsis(150000, 'PERIAPSIS');
 
-    console.log(`  Creating node to raise apoapsis to ${targetAp / 1000}km...`);
-    const result = await maneuver.adjustApoapsis(targetAp, 'PERIAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates node to lower apoapsis to 90km', async () => {
-    const maneuver = await getManeuverProgram();
-    const targetAp = 90000; // 90km
+  describe('lower to 90km', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.adjustApoapsis(90000, 'APOAPSIS');
 
-    console.log(`  Creating node to lower apoapsis to ${targetAp / 1000}km...`);
-    const result = await maneuver.adjustApoapsis(targetAp, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    // Lowering apoapsis still requires fuel
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 });

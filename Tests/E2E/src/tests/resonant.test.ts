@@ -16,42 +16,35 @@ describe('RESONANTORBIT', () => {
     await clearNodes();
   });
 
-  it('creates 2:1 resonant orbit node at apoapsis', async () => {
-    const maneuver = await getManeuverProgram();
+  describe('2:1 resonance', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.resonantOrbit(2, 1, 'APOAPSIS');
 
-    console.log('  Creating 2:1 resonant orbit node at apoapsis...');
-    const result = await maneuver.resonantOrbit(2, 1, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
-    console.log(`  Time to node: ${result.timeToNode?.toFixed(0)}s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates 3:2 resonant orbit node at periapsis', async () => {
-    const maneuver = await getManeuverProgram();
+  describe('3:2 resonance', () => {
+    it('creates node at periapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.resonantOrbit(3, 2, 'PERIAPSIS');
 
-    console.log('  Creating 3:2 resonant orbit node at periapsis...');
-    const result = await maneuver.resonantOrbit(3, 2, 'PERIAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-    expect(result.deltaV).toBeGreaterThan(0);
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+      expect(result.deltaV).toBeGreaterThan(0);
+    });
   });
 
-  it('creates 4:3 resonant orbit for fine constellation spacing', async () => {
-    const maneuver = await getManeuverProgram();
+  describe('4:3 resonance (fine spacing)', () => {
+    it('creates node at apoapsis', async () => {
+      const maneuver = await getManeuverProgram();
+      const result = await maneuver.resonantOrbit(4, 3, 'APOAPSIS');
 
-    console.log('  Creating 4:3 resonant orbit node...');
-    const result = await maneuver.resonantOrbit(4, 3, 'APOAPSIS');
-
-    expect(result.success).toBe(true);
-    expect(result.deltaV).toBeDefined();
-
-    console.log(`  Node created: ${result.deltaV?.toFixed(1)} m/s`);
+      expect(result.success).toBe(true);
+      expect(result.deltaV).toBeDefined();
+    });
   });
 });
