@@ -13,7 +13,7 @@ console.log = (...args: unknown[]) => {
 
 import { ensureConnected } from 'ksp-mcp';
 import type { KosConnection } from 'ksp-mcp/transport';
-import { ManeuverProgram, AscentProgram } from 'ksp-mcp/mechjeb';
+import { ManeuverOrchestrator, AscentProgram } from 'ksp-mcp/mechjeb';
 import { KOS_CPU_LABEL, TIMEOUTS, SAVES, LAST_TEST_FILE } from '../config.js';
 import { initializeKsp, recordLastSave, isKspRunning } from './ksp-launcher.js';
 import { validateEnvironment, formatValidationResult } from '../validate-environment.js';
@@ -21,7 +21,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 
 // Shared instances
 let conn: KosConnection | null = null;
-let maneuver: ManeuverProgram | null = null;
+let maneuver: ManeuverOrchestrator | null = null;
 let ascent: AscentProgram | null = null;
 
 // Test state
@@ -37,12 +37,12 @@ export async function getTestConnection(): Promise<KosConnection> {
 }
 
 /**
- * Get the maneuver program (creates if needed)
+ * Get the maneuver orchestrator (creates if needed)
  */
-export async function getManeuverProgram(): Promise<ManeuverProgram> {
+export async function getManeuverProgram(): Promise<ManeuverOrchestrator> {
   if (!maneuver) {
     const connection = await getTestConnection();
-    maneuver = new ManeuverProgram(connection);
+    maneuver = new ManeuverOrchestrator(connection);
   }
   return maneuver;
 }

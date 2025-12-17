@@ -19,7 +19,7 @@ describe('CIRCULARIZE', () => {
   describe('at apoapsis', () => {
     it('creates node', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.circularize('APOAPSIS');
+      const result = await maneuver.circularize('APOAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();
@@ -30,7 +30,7 @@ describe('CIRCULARIZE', () => {
   describe('at periapsis', () => {
     it('creates node', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.circularize('PERIAPSIS');
+      const result = await maneuver.circularize('PERIAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

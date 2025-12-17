@@ -9,7 +9,7 @@
  */
 
 import { ensureKspReady, getManeuverProgram, clearNodes, SAVES, TIMEOUTS } from '../helpers/test-setup.js';
-import type { ManeuverResult, SetTargetResult } from 'ksp-mcp/mechjeb';
+import type { OrchestratedResult } from 'ksp-mcp/mechjeb';
 
 describe('COURSECORRECTION', () => {
   beforeAll(async () => {
@@ -17,21 +17,15 @@ describe('COURSECORRECTION', () => {
   }, TIMEOUTS.KSP_STARTUP);
 
   describe('after Hohmann transfer to Mun', () => {
-    let targetResult: SetTargetResult;
-    let transferResult: ManeuverResult;
-    let correctionResult: ManeuverResult;
+    let transferResult: OrchestratedResult;
+    let correctionResult: OrchestratedResult;
 
     beforeAll(async () => {
       await clearNodes();
       const maneuver = await getManeuverProgram();
-      targetResult = await maneuver.setTarget('Mun');
-      transferResult = await maneuver.hohmannTransfer();
-      correctionResult = await maneuver.courseCorrection(50000);
+      transferResult = await maneuver.hohmannTransfer('COMPUTED', false, { target: 'Mun', execute: false });
+      correctionResult = await maneuver.courseCorrection(50000, { execute: false });
     }, TIMEOUTS.BURN_EXECUTION);
-
-    it('sets target', () => {
-      expect(targetResult.success).toBe(true);
-    });
 
     it('creates transfer node', () => {
       expect(transferResult.success).toBe(true);

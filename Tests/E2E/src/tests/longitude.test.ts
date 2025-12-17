@@ -18,7 +18,7 @@ describe('LONGITUDE', () => {
   describe('change to 45 degrees', () => {
     it('creates node at apoapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeLongitude(45, 'APOAPSIS');
+      const result = await maneuver.changeLongitude(45, 'APOAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();
@@ -29,7 +29,7 @@ describe('LONGITUDE', () => {
   describe('change to 270 degrees', () => {
     it('creates node at periapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeLongitude(270, 'PERIAPSIS');
+      const result = await maneuver.changeLongitude(270, 'PERIAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

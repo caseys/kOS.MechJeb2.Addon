@@ -18,7 +18,7 @@ describe('CHANGEAP', () => {
   describe('raise to 150km', () => {
     it('creates node at periapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.adjustApoapsis(150000, 'PERIAPSIS');
+      const result = await maneuver.adjustApoapsis(150000, 'PERIAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();
@@ -29,7 +29,7 @@ describe('CHANGEAP', () => {
   describe('lower to 90km', () => {
     it('creates node at apoapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.adjustApoapsis(90000, 'APOAPSIS');
+      const result = await maneuver.adjustApoapsis(90000, 'APOAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

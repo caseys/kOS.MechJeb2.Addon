@@ -18,7 +18,7 @@ describe('ELLIPTICIZE', () => {
   describe('to 80km x 120km', () => {
     it('creates node at apoapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.ellipticize(80000, 120000, 'APOAPSIS');
+      const result = await maneuver.ellipticize(80000, 120000, 'APOAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

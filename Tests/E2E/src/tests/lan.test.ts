@@ -18,7 +18,7 @@ describe('LAN', () => {
   describe('change to 90 degrees', () => {
     it('creates node at apoapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeLAN(90, 'APOAPSIS');
+      const result = await maneuver.changeLAN(90, 'APOAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();
@@ -29,7 +29,7 @@ describe('LAN', () => {
   describe('change to 180 degrees', () => {
     it('creates node at periapsis', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeLAN(180, 'PERIAPSIS');
+      const result = await maneuver.changeLAN(180, 'PERIAPSIS', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

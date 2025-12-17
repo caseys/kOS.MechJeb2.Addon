@@ -18,7 +18,7 @@ describe('CHANGEINCLINATION', () => {
   describe('to 0 degrees (equatorial)', () => {
     it('creates node at nearest equatorial node', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeInclination(0, 'EQ_NEAREST_AD');
+      const result = await maneuver.changeInclination(0, 'EQ_NEAREST_AD', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();
@@ -30,7 +30,7 @@ describe('CHANGEINCLINATION', () => {
   describe('to 10 degrees', () => {
     it('creates node at nearest equatorial node', async () => {
       const maneuver = await getManeuverProgram();
-      const result = await maneuver.changeInclination(10, 'EQ_NEAREST_AD');
+      const result = await maneuver.changeInclination(10, 'EQ_NEAREST_AD', { execute: false });
 
       expect(result.success).toBe(true);
       expect(result.deltaV).toBeDefined();

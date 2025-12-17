@@ -5,7 +5,7 @@
  */
 
 import { ensureKspReady, getManeuverProgram, clearNodes, SAVES, TIMEOUTS } from '../helpers/test-setup.js';
-import type { ManeuverResult, SetTargetResult } from 'ksp-mcp/mechjeb';
+import type { OrchestratedResult } from 'ksp-mcp/mechjeb';
 
 describe('HOHMANN', () => {
   beforeAll(async () => {
@@ -13,20 +13,13 @@ describe('HOHMANN', () => {
   }, TIMEOUTS.KSP_STARTUP);
 
   describe('transfer to Mun', () => {
-    let targetResult: SetTargetResult;
-    let transferResult: ManeuverResult;
+    let transferResult: OrchestratedResult;
 
     beforeAll(async () => {
       await clearNodes();
       const maneuver = await getManeuverProgram();
-      await maneuver.clearTarget().catch(() => {});
-      targetResult = await maneuver.setTarget('Mun', 'body');
-      transferResult = await maneuver.hohmannTransfer('COMPUTED', true);
+      transferResult = await maneuver.hohmannTransfer('COMPUTED', true, { target: 'Mun', execute: false });
     }, TIMEOUTS.BURN_EXECUTION);
-
-    it('sets target', () => {
-      expect(targetResult.success).toBe(true);
-    });
 
     it('creates transfer node', () => {
       expect(transferResult.success).toBe(true);
@@ -37,14 +30,14 @@ describe('HOHMANN', () => {
 
   describe('without target', () => {
     let hasTargetBefore: boolean;
-    let attemptResult: ManeuverResult;
+    let attemptResult: OrchestratedResult;
 
     beforeAll(async () => {
       await clearNodes();
       const maneuver = await getManeuverProgram();
       await maneuver.clearTarget();
       hasTargetBefore = await maneuver.hasTarget();
-      attemptResult = await maneuver.hohmannTransfer();
+      attemptResult = await maneuver.hohmannTransfer('COMPUTED', false, { execute: false });
     }, TIMEOUTS.BURN_EXECUTION);
 
     it('verifies no target', () => {

@@ -6,7 +6,7 @@
  */
 
 import { ensureKspReady, getManeuverProgram, clearNodes, SAVES, TIMEOUTS } from '../helpers/test-setup.js';
-import type { ManeuverResult, SetTargetResult } from 'ksp-mcp/mechjeb';
+import type { OrchestratedResult } from 'ksp-mcp/mechjeb';
 
 describe('KILLRELVEL', () => {
   beforeAll(async () => {
@@ -14,19 +14,13 @@ describe('KILLRELVEL', () => {
   }, TIMEOUTS.KSP_STARTUP);
 
   describe('at closest approach to Mun', () => {
-    let targetResult: SetTargetResult;
-    let killResult: ManeuverResult;
+    let killResult: OrchestratedResult;
 
     beforeAll(async () => {
       await clearNodes();
       const maneuver = await getManeuverProgram();
-      targetResult = await maneuver.setTarget('Mun');
-      killResult = await maneuver.killRelVel('CLOSEST_APPROACH');
+      killResult = await maneuver.killRelVel('CLOSEST_APPROACH', { target: 'Mun', execute: false });
     }, TIMEOUTS.BURN_EXECUTION);
-
-    it('sets target', () => {
-      expect(targetResult.success).toBe(true);
-    });
 
     it('creates node', () => {
       // deltaV will be large since we're matching a moon's orbital velocity
@@ -37,19 +31,13 @@ describe('KILLRELVEL', () => {
   });
 
   describe('with X_FROM_NOW timing', () => {
-    let targetResult: SetTargetResult;
-    let killResult: ManeuverResult;
+    let killResult: OrchestratedResult;
 
     beforeAll(async () => {
       await clearNodes();
       const maneuver = await getManeuverProgram();
-      targetResult = await maneuver.setTarget('Mun');
-      killResult = await maneuver.killRelVel('X_FROM_NOW');
+      killResult = await maneuver.killRelVel('X_FROM_NOW', { target: 'Mun', execute: false });
     }, TIMEOUTS.BURN_EXECUTION);
-
-    it('sets target', () => {
-      expect(targetResult.success).toBe(true);
-    });
 
     it('creates node', () => {
       expect(killResult.success).toBe(true);
