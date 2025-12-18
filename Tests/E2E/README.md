@@ -189,6 +189,62 @@ The build script auto-deploys to KSP GameData via KSPBuildTools. After building:
 - Restart KSP to load the new DLL
 - Verify with: `PRINT ADDONS:MJ.` in kOS terminal
 
+## Debugging kOS Operations
+
+When debugging operations that may block (like time warp) or have unreliable completion detection:
+
+### Background Testing with Claude Code
+
+Run blocking operations in background processes so the main thread stays responsive:
+
+```javascript
+// Run test in background using Claude Code's background bash
+<Bash run_in_background=true timeout=600000>
+node -e "
+const { KosConnection } = require('ksp-mcp');
+const { warpTo } = require('ksp-mcp/mechjeb/programs/warp');
+
+async function test() {
+  const conn = new KosConnection();
+  await conn.connect();
+  const result = await warpTo(conn, 'soi', { timeout: 300000 });
+  console.log('Result:', JSON.stringify(result, null, 2));
+}
+test().catch(console.error);
+"
+</Bash>
+```
+
+### Background Monitoring
+
+Start a separate process to monitor kOS state:
+
+```javascript
+// Monitor body and warp level every 2 seconds
+<Bash run_in_background=true timeout=600000>
+node -e "
+const { KosConnection } = require('ksp-mcp');
+async function monitor() {
+  const conn = new KosConnection();
+  await conn.connect();
+  setInterval(async () => {
+    const result = await conn.execute('PRINT SHIP:BODY:NAME + \"|\" + WARP.', 2000);
+    console.log(new Date().toISOString().substr(11,8), result.output.trim());
+  }, 2000);
+}
+monitor().catch(console.error);
+"
+</Bash>
+```
+
+### Key Debugging Patterns
+
+- **Outcome-based polling**: Poll actual outcomes (`SHIP:BODY:NAME`, `NEXTNODE:ETA`) rather than status flags (`WARP`)
+- **Sentinel-based completion**: `KosConnection.execute()` uses sentinels for reliable completion detection
+- **Flag-based completion**: For complex operations, use kOS-side flags with WHEN triggers
+
+See `ksp-mcp/docs/kos-protocol-analysis.md` and `ksp-mcp/.claude/commands/debug-kos.md` for detailed patterns.
+
 ## Contributing
 
 When adding new tests:

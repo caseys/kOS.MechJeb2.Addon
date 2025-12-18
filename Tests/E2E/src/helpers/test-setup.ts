@@ -11,10 +11,16 @@ console.log = (...args: unknown[]) => {
   process.stdout.write(args.map(a => String(a)).join(' ') + '\n');
 };
 
-import { ensureConnected } from 'ksp-mcp';
+import { ensureConnected, setWorkaroundsEnabled } from 'ksp-mcp';
 import type { KosConnection } from 'ksp-mcp/transport';
 import { ManeuverOrchestrator, AscentProgram } from 'ksp-mcp/mechjeb';
-import { KOS_CPU_LABEL, TIMEOUTS, SAVES, LAST_TEST_FILE } from '../config.js';
+import { KOS_CPU_LABEL, TIMEOUTS, SAVES, LAST_TEST_FILE, WORKAROUNDS_ENABLED } from '../config.js';
+
+// Configure ksp-mcp workarounds based on env var (default: enabled)
+setWorkaroundsEnabled(WORKAROUNDS_ENABLED);
+if (!WORKAROUNDS_ENABLED) {
+  console.log('  ksp-mcp workarounds DISABLED (WORKAROUNDS_ENABLED=false)');
+}
 import { initializeKsp, recordLastSave, isKspRunning } from './ksp-launcher.js';
 import { validateEnvironment, formatValidationResult } from '../validate-environment.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';

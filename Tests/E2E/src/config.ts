@@ -73,6 +73,9 @@ export const KOS_HOST = '127.0.0.1';
 export const KOS_PORT = 5410;
 export const KOS_CPU_LABEL = 'guidance';
 
+// ksp-mcp workarounds (enabled by default, disable for testing raw MechJeb behavior)
+export const WORKAROUNDS_ENABLED = process.env.WORKAROUNDS_ENABLED !== 'false';
+
 // Test timeouts (ms)
 export const TIMEOUTS = {
   KSP_STARTUP: 420000,     // 7 minutes for KSP to start
@@ -126,6 +129,7 @@ export const config_obj = {
   KOS_HOST,
   KOS_PORT,
   KOS_CPU_LABEL,
+  WORKAROUNDS_ENABLED,
   TIMEOUTS,
   LOG_PATTERNS,
   SAVES,
