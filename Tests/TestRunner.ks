@@ -57,8 +57,9 @@ UNTIL NOT running {
     PRINT "  6) Basic maneuver tests".
     PRINT "  7) Orbital geometry tests".
     PRINT "  8) Rendezvous tests".
-    PRINT "  9) Node Executor wrapper tests".
-    PRINT "  A) Run ALL tests".
+    PRINT "  9) Transfer tests".
+    PRINT "  A) Node Executor wrapper tests".
+    PRINT "  B) Run ALL tests".
     PRINT "  0) Exit".
     PRINT "".
 
@@ -119,11 +120,17 @@ UNTIL NOT running {
 
     } ELSE IF choice = "9" {
         PRINT "".
+        PRINT "Running Transfer tests...".
+        RUN ManeuverPlannerTransferTest.
+        WAIT_FOR_KEY().
+
+    } ELSE IF choice = "A" OR choice = "a" {
+        PRINT "".
         PRINT "Running NodeExecutor wrapper tests...".
         RUN NodeExecutorWrapperTest.
         WAIT_FOR_KEY().
 
-    } ELSE IF choice = "A" OR choice = "a" {
+    } ELSE IF choice = "B" OR choice = "b" {
         PRINT "".
         PRINT "Running ALL test suites...".
 
@@ -159,13 +166,17 @@ UNTIL NOT running {
         RUN ManeuverPlannerRendezvousTest.
         WAIT_FOR_KEY().
 
+        PRINT "---------------- TRANSFER ------------".
+        RUN ManeuverPlannerTransferTest.
+        WAIT_FOR_KEY().
+
         PRINT "---------------- NODE ----------------".
         RUN NodeExecutorWrapperTest.
         WAIT_FOR_KEY().
 
     } ELSE {
         PRINT "".
-        PRINT "Unknown choice: " + choice + " (expected 0-9, A).".
+        PRINT "Unknown choice: " + choice + " (expected 0-9, A, B).".
         WAIT_FOR_KEY().
     }.
 }.

@@ -127,6 +127,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         // Partial method declarations for suffix initialization in partial classes
         partial void InitializeBasicSuffixes();
         partial void InitializeOrbitalSuffixes();
+        partial void InitializeTransferSuffixes();
         partial void InitializeRendezvousSuffixes();
 
         protected override void InitializeSuffixes()
@@ -139,6 +140,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             // Initialize suffixes from partial classes
             InitializeBasicSuffixes();
             InitializeOrbitalSuffixes();
+            InitializeTransferSuffixes();
             InitializeRendezvousSuffixes();
         }
 

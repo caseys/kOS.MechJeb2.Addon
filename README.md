@@ -663,6 +663,19 @@ set planner to mj:planner.
 
 ---
 
+#### Transfer operations
+
+| Suffix             | Parameters              | Description                                      |
+|--------------------|-------------------------|--------------------------------------------------|
+| `HOHMANN`          | timeRef, capture (bool) | Hohmann transfer to target                       |
+| `HOHMANNRENDEZVOUS`| (bool, R/W)             | Enable rendezvous targeting (default: TRUE)      |
+| `INTERPLANETARY`   | waitForPhase (bool)     | Interplanetary transfer                          |
+| `COURSECORRECTION` | peA (m)                 | Fine-tune trajectory (auto-timing)               |
+| `RESONANTORBIT`    | num, denom, timeRef     | Create resonant orbit                            |
+| `MOONRETURN`       | peA (m)                 | Return from moon orbit (auto-timing)             |
+
+---
+
 #### TimeRef values
 
 | Value             | Description                              |
