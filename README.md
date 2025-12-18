@@ -652,6 +652,17 @@ set planner to mj:planner.
 
 ---
 
+#### Rendezvous operations
+
+| Suffix              | Parameters             | Description                      |
+|---------------------|------------------------|----------------------------------|
+| `PLANE`             | timeRef                | Match orbital plane with target  |
+| `KILLRELVEL`        | timeRef                | Match velocity with target       |
+| `CHANGEINCLINATION` | degrees, timeRef       | Change orbital inclination       |
+| `LAMBERT`           | interval (s), timeRef  | Lambert intercept trajectory     |
+
+---
+
 #### TimeRef values
 
 | Value             | Description                              |
