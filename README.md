@@ -642,6 +642,16 @@ set planner to mj:planner.
 
 ---
 
+#### Orbital geometry operations
+
+| Suffix        | Parameters             | Description                       |
+|---------------|------------------------|-----------------------------------|
+| `ECCENTRICITY`| ecc (0-1), timeRef     | Change eccentricity               |
+| `LONGITUDE`   | degrees, timeRef       | Change longitude of periapsis     |
+| `LAN`         | degrees, timeRef       | Change longitude of ascending node|
+
+---
+
 #### TimeRef values
 
 | Value             | Description                              |
@@ -662,7 +672,7 @@ set planner to mj:planner.
 
 ---
 
-#### Example: Raise and circularize orbit
+#### Example: Raise orbit and transfer to Mun
 
 ```ks
 set mj      to addons:mj.
@@ -673,6 +683,10 @@ planner:changeap(200000, "PERIAPSIS").
 
 // After executing first node, circularize at apoapsis
 planner:circularize("APOAPSIS").
+
+// Hohmann transfer to Mun
+set target to mun.
+planner:hohmann("COMPUTED", false).  // false = no capture burn
 ```
 
 ---

@@ -126,6 +126,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
         // Partial method declarations for suffix initialization in partial classes
         partial void InitializeBasicSuffixes();
+        partial void InitializeOrbitalSuffixes();
 
         protected override void InitializeSuffixes()
         {
@@ -136,6 +137,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             // Initialize suffixes from partial classes
             InitializeBasicSuffixes();
+            InitializeOrbitalSuffixes();
         }
 
         public override string context() => nameof(MechJebManeuverPlannerWrapper);
@@ -218,6 +220,95 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             var nodes = (System.Collections.IList)nodeList;
 
             // Check if list is empty (MechJeb returns empty list for invalid transfer windows)
+            if (nodes.Count == 0)
+                return false;
+
+            foreach (var node in nodes)
+            {
+                var dV = GetField(node, "dV");
+                var nodeUT = (double)GetField(node, "UT");
+                _placeManeuverNodeMethod.Invoke(null, new[] { vessel, orbit, dV, nodeUT });
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Execute an operation that requires setting targetLongitude on the target controller.
+        /// Used by LONGITUDE and LAN operations.
+        /// </summary>
+        private BooleanValue ExecuteOperationWithTargetLongitude(string operationTypeName, double longitudeDegrees, StringValue timeRef)
+        {
+            if (!Initialized)
+                throw new KOSException("ManeuverPlanner not initialized");
+
+            // Get a fresh ManeuverPlanner module from MasterMechJeb
+            var maneuverPlannerModule = GetManeuverPlannerModule();
+            if (maneuverPlannerModule == null)
+                throw new KOSException("ManeuverPlanner module not available - MechJeb may not be ready");
+
+            var vessel = _getModuleVessel(maneuverPlannerModule);
+            if (vessel == null)
+                throw new KOSException("MechJeb vessel reference is invalid");
+
+            // Find the operation
+            var operation = _operations.FirstOrDefault(op =>
+                op.GetType().Name.Equals(operationTypeName, StringComparison.OrdinalIgnoreCase));
+
+            if (operation == null)
+                throw new KOSException($"Operation {operationTypeName} not found");
+
+            // Set time reference on the operation's TimeSelector
+            if (timeRef != null)
+            {
+                SetTimeReference(operation, timeRef);
+            }
+
+            // Get orbit, time, and target controller
+            var vesselState = _getModuleVesselState(maneuverPlannerModule);
+            var ut = _getVesselStateTime(vesselState);
+            var orbit = _getModuleOrbit(maneuverPlannerModule);
+            var target = _getCoreTarget(maneuverPlannerModule);
+
+            if (target == null)
+                throw new KOSException("Target controller not available");
+
+            // Set targetLongitude on the target controller
+            // targetLongitude is an EditableAngle field - we can create a new instance from a double
+            var targetLongitudeField = target.GetType().GetField("targetLongitude",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (targetLongitudeField == null)
+                throw new KOSException("targetLongitude field not found on target controller");
+
+            var editableAngle = targetLongitudeField.GetValue(target);
+            if (editableAngle == null)
+                throw new KOSException("targetLongitude is null");
+
+            // Create a new EditableAngle from the longitude value
+            // EditableAngle has a constructor that takes a double and does all the D/M/S decomposition
+            var editableAngleType = editableAngle.GetType();
+            var newAngle = Activator.CreateInstance(editableAngleType, longitudeDegrees);
+            targetLongitudeField.SetValue(target, newAngle);
+
+            // Call MakeNodes - exactly like WindowGUI line 104
+            var makeNodes = operation.GetType().GetMethod("MakeNodes");
+            var nodeList = makeNodes.Invoke(operation, new object[] { orbit, ut, target });
+
+            if (nodeList == null)
+            {
+                // Check ErrorMessage via GetErrorMessage() method
+                var getErrorMsg = operation.GetType().GetMethod("GetErrorMessage");
+                var errorMsg = getErrorMsg?.Invoke(operation, null) as string;
+                if (!string.IsNullOrEmpty(errorMsg))
+                    throw new KOSException($"Maneuver failed: {errorMsg}");
+                return false;
+            }
+
+            // Place the nodes using Vessel.PlaceManeuverNode - exactly like WindowGUI line 111
+            var nodes = (System.Collections.IList)nodeList;
+
+            // Check if list is empty
             if (nodes.Count == 0)
                 return false;
 
