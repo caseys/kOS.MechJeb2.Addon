@@ -543,11 +543,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             var getterObj = fieldCtx.AsGetter<object>();
             var getterDouble = Reflect.On(getterObj(settings))
-                .Property(Constants.EditableDoubleValueName)
+                .Property(Constants.EditableValuePropertyName)
                 .AsGetter<T>();
 
             var setVal = Reflect.On(getterObj(settings))
-                .Property(Constants.EditableDoubleValueName)
+                .Property(Constants.EditableValuePropertyName)
                 .AsSetter<T>();
 
             return (ctx => getterDouble(getterObj(ctx)), (ctx, val) => setVal(getterObj(ctx), val));

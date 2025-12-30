@@ -50,6 +50,12 @@ namespace kOS.MechJeb2.Addon
             AddSuffix(new[] { "TARGET", "TARGETCONTROLLER" }, new NoArgsSuffix<MechJebTargetWrapper>(() =>
                 MechJebController.Instance.Target
             ));
+            AddSuffix(new[] { "LANDING", "LANDINGAUTOPILOT" }, new NoArgsSuffix<MechJebLandingWrapper>(() =>
+                MechJebController.Instance.Landing
+            ));
+            AddSuffix("LANDINGGUIDANCE", new NoArgsSuffix<MechJebLandingGuidanceWrapper>(() =>
+                MechJebController.Instance.LandingGuidance
+            ));
             AddSuffix("VERSION",
                 new NoArgsSuffix<VersionInfo>(GetVersionInfo,
                     "Returns the kOS.MechJeb2.Addon version (major.minor.patch.build)."));

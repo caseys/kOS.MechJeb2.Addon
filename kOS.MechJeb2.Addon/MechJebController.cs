@@ -20,6 +20,8 @@ namespace kOS.MechJeb2.Addon
                 { WrapperTypes.Planner, new MechJebManeuverPlannerWrapper() },
                 { WrapperTypes.Node, new MechJebNodeExecutorWrapper() },
                 { WrapperTypes.Target, new MechJebTargetWrapper() },
+                { WrapperTypes.Landing, new MechJebLandingWrapper() },
+                { WrapperTypes.LandingGuidance, new MechJebLandingGuidanceWrapper() },
             };
             foreach (var baseWrapper in _wrappers)
             {
@@ -40,6 +42,8 @@ namespace kOS.MechJeb2.Addon
         public MechJebManeuverPlannerWrapper ManeuverPlanner => _wrappers[WrapperTypes.Planner] as MechJebManeuverPlannerWrapper;
         public MechJebNodeExecutorWrapper NodeExecutor => _wrappers[WrapperTypes.Node] as MechJebNodeExecutorWrapper;
         public MechJebTargetWrapper Target => _wrappers[WrapperTypes.Target] as MechJebTargetWrapper;
+        public MechJebLandingWrapper Landing => _wrappers[WrapperTypes.Landing] as MechJebLandingWrapper;
+        public MechJebLandingGuidanceWrapper LandingGuidance => _wrappers[WrapperTypes.LandingGuidance] as MechJebLandingGuidanceWrapper;
     }
 
     internal enum WrapperTypes
@@ -50,6 +54,8 @@ namespace kOS.MechJeb2.Addon
         Core,
         Planner,
         Node,
-        Target
+        Target,
+        Landing,
+        LandingGuidance
     }
 }
