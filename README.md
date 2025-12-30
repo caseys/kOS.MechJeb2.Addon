@@ -22,12 +22,12 @@ This addon provides a bridge between **kOS** and **MechJeb2**, allowing you to:
     - biome, coordinates, atmosphere data, etc.
 
 - 🧠 **Wrappers for MechJeb modules**:
-    - Ascent Autopilot
-    - Attitude Controller
-    - Target Controller
-    - Maneuver Node Executor
-    - Landing Autopilot
-    - Stage Stats
+    - Ascent Autopilot (launch to orbit with configurable profiles)
+    - Maneuver Planner (transfers, rendezvous, orbital changes)
+    - Node Executor (automatic maneuver execution)
+    - Target Controller (vessels, bodies, surface positions, SAS directions)
+    - Vessel State (real-time flight data)
+    - Info Items (ΔV, TWR, orbital parameters)
     - Many more…
 
 - ⚙️ **High-performance reflection layer**:
@@ -107,6 +107,7 @@ These suffixes are available directly on the addon and mirror the core wrapper s
 | `ASCENT`, `ASCENTGUIDANCE` | MechJebAscentWrapper    | Classic ascent autopilot settings and toggles         |
 | `PLANNER`, `MANEUVERPLANNER` | ManeuverPlannerWrapper | Maneuver node planning operations                     |
 | `NODE`, `NODEEXECUTOR`       | NodeExecutorWrapper    | Execute maneuver nodes                                |
+| `CORE:TARGET`              | TargetWrapper           | Target controller (vessels, bodies, positions)        |
 | `VERSION`                  | VersionInfo             | Actual plugin/addon version                           |
 
 ```ks
@@ -752,4 +753,169 @@ set node:enabled to true.
 // Wait for burn to complete
 wait until not node:enabled.
 print "Maneuver complete!".
+```
+
+---
+
+### Target controller (`ADDONS:MJ:CORE:TARGET`)
+
+This wrapper provides access to MechJeb's target controller for setting and querying navigation targets.
+
+#### Getting the wrapper
+
+```ks
+set mj  to addons:mj.
+set tgt to mj:core:target.
+```
+
+---
+
+#### Target setting
+
+| Suffix             | Parameters        | Returns | Description                                |
+|--------------------|-------------------|---------|--------------------------------------------|
+| `SETTARGET`        | lat, lon, bodyName| Boolean | Set position target at coordinates         |
+| `SETTARGETKSC`     | (none)            | Boolean | Set target to KSC launchpad                |
+| `SETTARGETVESSEL`  | vesselName        | Boolean | Set target to named vessel                 |
+| `SETTARGETBODY`    | bodyName          | Boolean | Set target to celestial body               |
+| `SETDIRECTIONTARGET` | direction (V)   | Boolean | Set direction target for SAS guidance      |
+| `UNSET`            | (none)            | Boolean | Clear current target                       |
+
+---
+
+#### Target state
+
+| Suffix               | Type    | Description                                          |
+|----------------------|---------|------------------------------------------------------|
+| `NORMALTARGETEXISTS` | Boolean | True if vessel or body target is set                 |
+| `POSITIONTARGETEXISTS`| Boolean| True if position target is set (excludes direction)  |
+| `CANALIGN`           | Boolean | True if target supports docking alignment            |
+
+---
+
+#### Basic target info
+
+| Suffix            | Type   | Description                                          |
+|-------------------|--------|------------------------------------------------------|
+| `NAME`            | String | Target name (vessel, body, or position coordinates)  |
+| `TARGETBODY`      | String | Reference body of target's orbit                     |
+| `DISTANCE`        | Scalar | Distance to target (m)                               |
+| `RELVELOCITY`     | Scalar | Relative velocity to target (m/s)                    |
+| `RELPOSITION`     | Vector | Relative position vector to target                   |
+
+---
+
+#### Position target info
+
+| Suffix            | Type   | Description                           |
+|-------------------|--------|---------------------------------------|
+| `TARGETLATITUDE`  | Scalar | Target latitude (degrees)             |
+| `TARGETLONGITUDE` | Scalar | Target longitude (degrees)            |
+
+---
+
+#### Target orbital elements
+
+| Suffix              | Type   | Description                           |
+|---------------------|--------|---------------------------------------|
+| `TARGETAPOAPSIS`    | Scalar | Target apoapsis altitude (m)          |
+| `TARGETPERIAPSIS`   | Scalar | Target periapsis altitude (m)         |
+| `TARGETINCLINATION` | Scalar | Target orbital inclination (degrees)  |
+| `TARGETECCENTRICITY`| Scalar | Target orbital eccentricity           |
+| `TARGETPERIOD`      | Scalar | Target orbital period (s)             |
+| `TARGETSMA`         | Scalar | Target semi-major axis (m)            |
+| `TARGETLAN`         | Scalar | Target longitude of ascending node    |
+
+---
+
+#### Rendezvous info
+
+| Suffix                    | Type    | Description                              |
+|---------------------------|---------|------------------------------------------|
+| `CLOSESTAPPROACHTIME`     | Scalar  | Time to closest approach (s)             |
+| `CLOSESTAPPROACHDISTANCE` | Scalar  | Distance at closest approach (m)         |
+| `PHASEANGLE`              | Scalar  | Current phase angle to target (degrees)  |
+| `RELATIVEINCLINATION`     | Scalar  | Relative orbital inclination (degrees)   |
+
+---
+
+#### Node timing
+
+| Suffix      | Type    | Description                                   |
+|-------------|---------|-----------------------------------------------|
+| `TIMETOAN`  | Scalar  | Time to relative ascending node (s)           |
+| `TIMETODN`  | Scalar  | Time to relative descending node (s)          |
+| `TIMETOEQAN`| Scalar  | Time to equatorial ascending node (s)         |
+| `TIMETOEQDN`| Scalar  | Time to equatorial descending node (s)        |
+| `ANEXISTS`  | Boolean | True if relative ascending node exists        |
+| `DNEXISTS`  | Boolean | True if relative descending node exists       |
+
+---
+
+#### Docking info
+
+| Suffix       | Type   | Description                                      |
+|--------------|--------|--------------------------------------------------|
+| `DOCKINGAXIS`| Vector | Docking port axis (V(0,0,0) if not applicable)   |
+
+---
+
+#### Direction target
+
+The `SETDIRECTIONTARGET` suffix creates a special target type used for SAS guidance:
+
+```ks
+set tgt to addons:mj:core:target.
+
+// Set direction target pointing "up" in vessel frame
+tgt:setdirectiontarget(v(0, 1, 0)).
+
+// SAS can now use "target" and "anti-target" modes
+// Note: No visual marker appears on navball (by design)
+```
+
+**Important**: Direction targets are intentionally excluded from `POSITIONTARGETEXISTS` and `NORMALTARGETEXISTS` by MechJeb design. They work with KSP's SAS target/anti-target modes for attitude control, but do not display visual markers on the navball.
+
+---
+
+#### Example: Rendezvous setup
+
+```ks
+set mj  to addons:mj.
+set tgt to mj:core:target.
+
+// Target another vessel
+tgt:settargetvessel("Space Station").
+
+// Check if target was set
+if tgt:normaltargetexists {
+    print "Target: " + tgt:name.
+    print "Distance: " + round(tgt:distance/1000, 1) + " km".
+    print "Rel velocity: " + round(tgt:relvelocity, 1) + " m/s".
+    print "Closest approach: " + round(tgt:closestapproachdistance/1000, 1) + " km".
+    print "Phase angle: " + round(tgt:phaseangle, 1) + " deg".
+
+    // Check for plane alignment opportunity
+    if tgt:anexists {
+        print "Time to AN: " + round(tgt:timetoan) + " s".
+    }
+}
+```
+
+#### Example: Landing target
+
+```ks
+set mj  to addons:mj.
+set tgt to mj:core:target.
+
+// Set landing target at specific coordinates on Mun
+tgt:settarget(-0.5, 25.5, "Mun").
+
+if tgt:positiontargetexists {
+    print "Landing at: " + tgt:name.
+    print "Distance: " + round(tgt:distance/1000, 1) + " km".
+}
+
+// Or quickly target KSC
+tgt:settargetksc().
 ```

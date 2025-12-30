@@ -59,7 +59,8 @@ UNTIL NOT running {
     PRINT "  8) Rendezvous tests".
     PRINT "  9) Transfer tests".
     PRINT "  A) Node Executor wrapper tests".
-    PRINT "  B) Run ALL tests".
+    PRINT "  B) Target wrapper tests".
+    PRINT "  C) Run ALL tests".
     PRINT "  0) Exit".
     PRINT "".
 
@@ -132,6 +133,12 @@ UNTIL NOT running {
 
     } ELSE IF choice = "B" OR choice = "b" {
         PRINT "".
+        PRINT "Running Target wrapper tests...".
+        RUN TargetWrapperTest.
+        WAIT_FOR_KEY().
+
+    } ELSE IF choice = "C" OR choice = "c" {
+        PRINT "".
         PRINT "Running ALL test suites...".
 
         PRINT "---------------- CORE ----------------".
@@ -174,9 +181,13 @@ UNTIL NOT running {
         RUN NodeExecutorWrapperTest.
         WAIT_FOR_KEY().
 
+        PRINT "---------------- TARGET --------------".
+        RUN TargetWrapperTest.
+        WAIT_FOR_KEY().
+
     } ELSE {
         PRINT "".
-        PRINT "Unknown choice: " + choice + " (expected 0-9, A, B).".
+        PRINT "Unknown choice: " + choice + " (expected 0-9, A-C).".
         WAIT_FOR_KEY().
     }.
 }.

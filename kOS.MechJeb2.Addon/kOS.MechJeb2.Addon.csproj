@@ -72,6 +72,7 @@
         <Compile Include="Wrapeers\ManeuverPlanner\Rendezvous.cs"/>
         <Compile Include="Wrapeers\MechJebNodeExecutorWrapper.cs"/>
         <Compile Include="Wrapeers\VesselStateWrapper.cs"/>
+        <Compile Include="Wrapeers\MechJebTargetWrapper.cs"/>
     </ItemGroup>
     <ItemGroup>
         <None Include="packages.config"/>

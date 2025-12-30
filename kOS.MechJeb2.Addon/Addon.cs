@@ -47,6 +47,9 @@ namespace kOS.MechJeb2.Addon
             AddSuffix(new[] { "NODE", "NODEEXECUTOR" }, new NoArgsSuffix<MechJebNodeExecutorWrapper>(() =>
                 MechJebController.Instance.NodeExecutor
             ));
+            AddSuffix(new[] { "TARGET", "TARGETCONTROLLER" }, new NoArgsSuffix<MechJebTargetWrapper>(() =>
+                MechJebController.Instance.Target
+            ));
             AddSuffix("VERSION",
                 new NoArgsSuffix<VersionInfo>(GetVersionInfo,
                     "Returns the kOS.MechJeb2.Addon version (major.minor.patch.build)."));
