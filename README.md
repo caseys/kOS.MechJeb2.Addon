@@ -696,6 +696,55 @@ set planner to mj:planner.
 
 ---
 
+#### Using X_FROM_NOW with *TIMED suffixes
+
+The `X_FROM_NOW` time reference requires specifying how many seconds in the future to execute the maneuver.
+To pass this value thread-safely, use the `*TIMED` suffix variants which accept the seconds as an additional parameter.
+
+**Basic operations (TIMED variants)**
+
+| Suffix            | Parameters                          | Description                           |
+|-------------------|-------------------------------------|---------------------------------------|
+| `CHANGEPETIMED`   | altitude (m), timeRef, seconds      | Change periapsis at X_FROM_NOW        |
+| `CHANGEAPTIMED`   | altitude (m), timeRef, seconds      | Change apoapsis at X_FROM_NOW         |
+| `CIRCULARIZETIMED`| timeRef, seconds                    | Circularize at X_FROM_NOW             |
+| `ELLIPTICIZETIMED`| peA (m), apA (m), timeRef, seconds  | Set both apsides at X_FROM_NOW        |
+| `SEMIMAJORTIMED`  | sma (m), timeRef, seconds           | Change semi-major axis at X_FROM_NOW  |
+
+**Orbital geometry operations (TIMED variants)**
+
+| Suffix             | Parameters                    | Description                               |
+|--------------------|-------------------------------|-------------------------------------------|
+| `ECCENTRICITYTIMED`| ecc (0-1), timeRef, seconds   | Change eccentricity at X_FROM_NOW         |
+
+**Rendezvous operations (TIMED variants)**
+
+| Suffix                   | Parameters                    | Description                          |
+|--------------------------|-------------------------------|--------------------------------------|
+| `KILLRELVELTIMED`        | timeRef, seconds              | Match velocity at X_FROM_NOW         |
+| `CHANGEINCLINATIONTIMED` | degrees, timeRef, seconds     | Change inclination at X_FROM_NOW     |
+| `LAMBERTTIMED`           | interval (s), timeRef, seconds| Lambert intercept at X_FROM_NOW      |
+
+**Transfer operations (TIMED variants)**
+
+| Suffix              | Parameters                       | Description                        |
+|---------------------|----------------------------------|------------------------------------|
+| `RESONANTORBITTIMED`| num, denom, timeRef, seconds     | Resonant orbit at X_FROM_NOW       |
+
+**Example: Execute maneuver 60 seconds from now**
+
+```ks
+set planner to addons:mj:planner.
+
+// Change periapsis to 80km, 60 seconds from now
+planner:changepetimed(80000, "X_FROM_NOW", 60).
+
+// Circularize 120 seconds from now
+planner:circularizetimed("X_FROM_NOW", 120).
+```
+
+---
+
 #### Example: Raise orbit and transfer to Mun
 
 ```ks

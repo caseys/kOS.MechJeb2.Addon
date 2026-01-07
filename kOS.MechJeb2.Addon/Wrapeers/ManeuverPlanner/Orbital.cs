@@ -30,6 +30,12 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new TwoArgsSuffix<BooleanValue, ScalarValue, StringValue>(
                     Lan,
                     "Change longitude of ascending node. Params: targetLan (degrees), timeRef (APOAPSIS, PERIAPSIS, X_FROM_NOW)"));
+
+            // *TIMED variant - for X_FROM_NOW with explicit seconds (thread-safe)
+            AddSuffix("ECCENTRICITYTIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    EccentricityWithTime,
+                    "Change eccentricity with X_FROM_NOW seconds"));
         }
 
         private BooleanValue Eccentricity(ScalarValue newEcc, StringValue timeRef)
@@ -53,6 +59,18 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             // OperationLan reads longitude from target.targetLongitude (yes, LAN uses targetLongitude field)
             // We need to set it before calling MakeNodes
             return ExecuteOperationWithTargetLongitude("OperationLan", (double)targetLanDegrees, timeRef);
+        }
+
+        // ============================================================================
+        // *TIMED variants - thread-safe X_FROM_NOW support
+        // ============================================================================
+
+        private BooleanValue EccentricityWithTime(ScalarValue newEcc, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationEccentricity", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewEcc", (double)newEcc);
+            }, (double)xFromNowSeconds);
         }
     }
 }

@@ -35,6 +35,22 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new TwoArgsSuffix<BooleanValue, ScalarValue, StringValue>(
                     Lambert,
                     "Lambert intercept trajectory. Requires target in same SOI. Params: interceptInterval (seconds), timeRef (X_FROM_NOW)"));
+
+            // *TIMED variants - for X_FROM_NOW with explicit seconds (thread-safe)
+            AddSuffix("KILLRELVELTIMED",
+                new TwoArgsSuffix<BooleanValue, StringValue, ScalarValue>(
+                    KillRelativeVelocityWithTime,
+                    "Match velocity with target using X_FROM_NOW seconds"));
+
+            AddSuffix("CHANGEINCLINATIONTIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    ChangeInclinationWithTime,
+                    "Change inclination with X_FROM_NOW seconds"));
+
+            AddSuffix("LAMBERTTIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    LambertWithTime,
+                    "Lambert intercept with X_FROM_NOW seconds"));
         }
 
         private BooleanValue MatchPlane(StringValue timeRef)
@@ -63,6 +79,31 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 // InterceptInterval is time between burn and intercept (seconds)
                 SetEditableOnOperation(op, "InterceptInterval", (double)interceptInterval);
             });
+        }
+
+        // ============================================================================
+        // *TIMED variants - thread-safe X_FROM_NOW support
+        // ============================================================================
+
+        private BooleanValue KillRelativeVelocityWithTime(StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationKillRelVel", timeRef, op => { }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue ChangeInclinationWithTime(ScalarValue newInc, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationInclination", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewInc", (double)newInc);
+            }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue LambertWithTime(ScalarValue interceptInterval, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationLambert", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "InterceptInterval", (double)interceptInterval);
+            }, (double)xFromNowSeconds);
         }
     }
 }

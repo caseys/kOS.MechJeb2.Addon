@@ -1,4 +1,5 @@
 using System.Reflection;
+using kOS.MechJeb2.Addon.kOS;
 using kOS.Safe.Encapsulation;
 using kOS.Safe.Encapsulation.Suffixes;
 
@@ -50,6 +51,12 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new OneArgsSuffix<BooleanValue, ScalarValue>(
                     MoonReturn,
                     "Return from moon orbit to parent body. Params: targetPeriapsis (m). Auto-timing."));
+
+            // *TIMED variant - for X_FROM_NOW with explicit seconds (thread-safe)
+            AddSuffix("RESONANTORBITTIMED",
+                new FourArgsSuffix<BooleanValue, ScalarValue, ScalarValue, StringValue, ScalarValue>(
+                    ResonantOrbitWithTime,
+                    "Create resonant orbit with X_FROM_NOW seconds"));
         }
 
         private BooleanValue HohmannTransfer(StringValue timeRef, BooleanValue capture)
@@ -103,6 +110,19 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 // MoonReturnAltitude is target periapsis at parent body (in meters)
                 SetEditableOnOperation(op, "MoonReturnAltitude", (double)targetPeriapsis);
             });
+        }
+
+        // ============================================================================
+        // *TIMED variants - thread-safe X_FROM_NOW support
+        // ============================================================================
+
+        private BooleanValue ResonantOrbitWithTime(ScalarValue numerator, ScalarValue denominator, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationResonantOrbit", timeRef, op =>
+            {
+                SetEditableIntOnOperation(op, "ResonanceNumerator", (int)numerator);
+                SetEditableIntOnOperation(op, "ResonanceDenominator", (int)denominator);
+            }, (double)xFromNowSeconds);
         }
 
         /// <summary>
