@@ -17,6 +17,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         private Func<object, object> _thrustControllerGetter;
         private Func<object, object> _nodeExecutorGetter;
         private Func<object, object> _autopilotGetter;
+        private Func<object, string> _getStatus;
         
         private object AscentSettings => _ascentSettingsGetter(MasterMechJeb);
         private object StagingController => _stagingControllerGetter(MasterMechJeb);
@@ -47,6 +48,10 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             GetEnabled = Member(autopilot, nameof(Enabled)).GetProp<bool>();
             SetEnabled = Member(autopilot, nameof(Enabled)).SetProp<bool>();
+
+            // Bind Status field for status suffix (string Status in MechJebModuleAscentBaseAutopilot)
+            // Use instance-based reflection (Member) to properly find inherited field from base class
+            _getStatus = Member(autopilot, "Status").GetField<string>();
 
             // Bind to Users pool for proper autopilot engagement
             // MechJeb GUI uses _autopilot.Users.Add(this) to engage, not Enabled = true directly
@@ -161,6 +166,9 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         {
             AddSuffix("ENABLED",
                 new SetSuffix<BooleanValue>(() => Enabled, value => Enabled = value, "Is Ascent autopilot enable?"));
+            AddSuffix("STATUS",
+                new NoArgsSuffix<StringValue>(() => GetStatus(),
+                    "Current ascent autopilot status"));
             AddSuffix(new[] { "DESIREDALTITUDE", "DSRALT" },
                 new SetSuffix<ScalarDoubleValue>(() => GetDesiredAltitudeDouble(AscentSettings),
                     value => SetDesiredAltitude(AscentSettings, value),
@@ -392,6 +400,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             }
         }
 
+        private StringValue GetStatus()
+        {
+            if (!Initialized) return "Not initialized";
+            return _getStatus(Autopilot) ?? "Off";
+        }
 
         public int AscentType => GetAscentTypeInteger(AscentSettings);
 
