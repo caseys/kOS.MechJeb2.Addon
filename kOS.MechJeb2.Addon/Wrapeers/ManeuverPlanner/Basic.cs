@@ -1,3 +1,4 @@
+using kOS.MechJeb2.Addon.kOS;
 using kOS.Safe.Encapsulation;
 using kOS.Safe.Encapsulation.Suffixes;
 
@@ -39,6 +40,32 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new TwoArgsSuffix<BooleanValue, ScalarValue, StringValue>(
                     SemiMajor,
                     "Change semi-major axis to size (m) at time reference"));
+
+            // *TIMED variants - for X_FROM_NOW with explicit seconds (thread-safe)
+            AddSuffix("CHANGEPETIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    ChangePeriapsisWithTime,
+                    "Change periapsis with X_FROM_NOW seconds"));
+
+            AddSuffix("CHANGEAPTIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    ChangeApoapsisWithTime,
+                    "Change apoapsis with X_FROM_NOW seconds"));
+
+            AddSuffix("CIRCULARIZETIMED",
+                new TwoArgsSuffix<BooleanValue, StringValue, ScalarValue>(
+                    CircularizeWithTime,
+                    "Circularize with X_FROM_NOW seconds"));
+
+            AddSuffix("ELLIPTICIZETIMED",
+                new FourArgsSuffix<BooleanValue, ScalarValue, ScalarValue, StringValue, ScalarValue>(
+                    EllipticizeWithTime,
+                    "Set both Pe and Ap with X_FROM_NOW seconds"));
+
+            AddSuffix("SEMIMAJORTIMED",
+                new ThreeArgsSuffix<BooleanValue, ScalarValue, StringValue, ScalarValue>(
+                    SemiMajorWithTime,
+                    "Change semi-major axis with X_FROM_NOW seconds"));
         }
 
         private BooleanValue ChangePeriapsis(ScalarValue altitude, StringValue timeRef)
@@ -81,6 +108,48 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 // MechJeb uses kilometers internally, but we pass meters and MechJeb converts
                 SetEditableOnOperation(op, "NewSma", (double)newSma);
             });
+        }
+
+        // ============================================================================
+        // *TIMED variants - thread-safe X_FROM_NOW support
+        // ============================================================================
+
+        private BooleanValue ChangePeriapsisWithTime(ScalarValue altitude, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationPeriapsis", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewPeA", (double)altitude);
+            }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue ChangeApoapsisWithTime(ScalarValue altitude, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationApoapsis", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewApA", (double)altitude);
+            }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue CircularizeWithTime(StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationCircularize", timeRef, op => { }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue EllipticizeWithTime(ScalarValue newPeA, ScalarValue newApA, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationEllipticize", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewPeA", (double)newPeA);
+                SetEditableOnOperation(op, "NewApA", (double)newApA);
+            }, (double)xFromNowSeconds);
+        }
+
+        private BooleanValue SemiMajorWithTime(ScalarValue newSma, StringValue timeRef, ScalarValue xFromNowSeconds)
+        {
+            return ExecuteOperation("OperationSemiMajor", timeRef, op =>
+            {
+                SetEditableOnOperation(op, "NewSma", (double)newSma);
+            }, (double)xFromNowSeconds);
         }
     }
 }

@@ -169,7 +169,11 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             return list;
         }
 
-        private BooleanValue ExecuteOperation(string operationTypeName, StringValue timeRef, Action<object> configure)
+        /// <summary>
+        /// Execute a maneuver operation.
+        /// For X_FROM_NOW timing, use *TIMED suffix variants that pass seconds directly.
+        /// </summary>
+        private BooleanValue ExecuteOperation(string operationTypeName, StringValue timeRef, Action<object> configure, double? xFromNowSeconds = null)
         {
             if (!Initialized)
                 throw new KOSException("ManeuverPlanner not initialized");
@@ -193,7 +197,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             // Set time reference on the operation's TimeSelector (skip if null for auto-timing operations)
             if (timeRef != null)
             {
-                SetTimeReference(operation, timeRef);
+                SetTimeReference(operation, timeRef, xFromNowSeconds);
             }
 
             // Configure operation-specific parameters
@@ -241,7 +245,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         /// Execute an operation that requires setting targetLongitude on the target controller.
         /// Used by LONGITUDE and LAN operations.
         /// </summary>
-        private BooleanValue ExecuteOperationWithTargetLongitude(string operationTypeName, double longitudeDegrees, StringValue timeRef)
+        private BooleanValue ExecuteOperationWithTargetLongitude(string operationTypeName, double longitudeDegrees, StringValue timeRef, double? xFromNowSeconds = null)
         {
             if (!Initialized)
                 throw new KOSException("ManeuverPlanner not initialized");
@@ -265,7 +269,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             // Set time reference on the operation's TimeSelector
             if (timeRef != null)
             {
-                SetTimeReference(operation, timeRef);
+                SetTimeReference(operation, timeRef, xFromNowSeconds);
             }
 
             // Get orbit, time, and target controller
@@ -326,7 +330,7 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             return true;
         }
 
-        private void SetTimeReference(object operation, StringValue timeRefName)
+        private void SetTimeReference(object operation, StringValue timeRefName, double? xFromNowSeconds = null)
         {
             // Get the _timeSelector field (it's static in Operation subclasses)
             var timeSelectorField = operation.GetType()
@@ -375,6 +379,23 @@ namespace kOS.MechJeb2.Addon.Wrapeers
             }
 
             currentTimeRefField.SetValue(timeSelector, index);
+
+            // If X_FROM_NOW and time value provided, set TimeSelector.LeadTime.Val
+            // (MechJeb uses LeadTime.Val for X_FROM_NOW: ut += LeadTime.Val)
+            if (xFromNowSeconds.HasValue && timeRefValue.ToString() == "X_FROM_NOW")
+            {
+                var leadTimeField = _timeSelectorType.GetField("LeadTime",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (leadTimeField != null)
+                {
+                    var leadTimeObj = leadTimeField.GetValue(timeSelector);
+                    if (leadTimeObj != null)
+                    {
+                        var setter = Reflect.On(leadTimeObj).Property("Val").AsSetter<double>();
+                        setter(leadTimeObj, xFromNowSeconds.Value);
+                    }
+                }
+            }
         }
 
         /// <summary>

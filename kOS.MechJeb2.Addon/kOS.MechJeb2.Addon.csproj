@@ -54,6 +54,7 @@
         <Compile Include="Core\IInfoItemsWrapper.cs"/>
         <Compile Include="Core\IMechJebAscentWrapper.cs"/>
         <Compile Include="Core\IVesselStateWrapper.cs"/>
+        <Compile Include="kOS\FourArgsSuffix.cs"/>
         <Compile Include="kOS\PredicatedSetSuffix.cs"/>
         <Compile Include="MechJebController.cs"/>
         <Compile Include="Properties\AssemblyInfo.cs"/>
