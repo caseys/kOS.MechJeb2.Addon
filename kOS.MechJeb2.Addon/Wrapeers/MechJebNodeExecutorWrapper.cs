@@ -20,12 +20,18 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         // Internal enabled property getter
         private Func<object, bool> _getEnabled;
 
+        // State property getter (WARPALIGN, LEAD, BURN, IDLE)
+        private Func<object, object> _getState;
+
         protected override void BindObject()
         {
             _nodeExecutorGetter = Member(MasterMechJeb, "Node").GetField<object>();
             var nodeExecutor = _nodeExecutorGetter(MasterMechJeb);
 
             _getEnabled = Member(nodeExecutor, "Enabled").GetProp<bool>();
+
+            // Bind State property (returns enum: WARPALIGN, LEAD, BURN, IDLE)
+            _getState = Member(nodeExecutor, "State").GetField<object>();
 
             // Bind to ExecuteOneNode and Abort methods
             _executeOneNode = Reflect.On(nodeExecutor).Method("ExecuteOneNode").WithArgs(typeof(object)).AsAction();
@@ -48,11 +54,26 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                 new SetSuffix<BooleanValue>(() => Enabled, value => Enabled = value,
                     "Is node executor enabled?"));
 
+            AddSuffix("STATE",
+                new Suffix<StringValue>(() => State,
+                    "Current executor state: WARPALIGN, LEAD, BURN, or IDLE"));
+
             AddSuffix(new[] { "AUTOWARP", "WARP" },
                 new SetSuffix<BooleanValue>(
                     () => GetAutoWarp(_nodeExecutorGetter(MasterMechJeb)),
                     value => SetAutoWarp(_nodeExecutorGetter(MasterMechJeb), value),
                     "Enable automatic time warp to node"));
+        }
+
+        public StringValue State
+        {
+            get
+            {
+                if (!Initialized)
+                    throw new KOSException("Cannot get State property of not initialized MechJebNodeExecutorWrapper");
+                var state = _getState(_nodeExecutorGetter(MasterMechJeb));
+                return new StringValue(state.ToString());
+            }
         }
 
         public override string context() => nameof(MechJebNodeExecutorWrapper);

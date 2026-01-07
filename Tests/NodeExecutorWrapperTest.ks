@@ -80,6 +80,30 @@ PRINT "ENABLED read tests done.".
 PRINT "-------------------------------".
 
 // -----------------------------------------------------------------------------
+// Test: STATE read
+// -----------------------------------------------------------------------------
+PRINT "TEST: STATE read".
+
+SET state TO mjnode:STATE.
+PRINT "  STATE value: " + state.
+
+// STATE should be one of: WARPALIGN, LEAD, BURN, IDLE
+SET validStates TO LIST("WARPALIGN", "LEAD", "BURN", "IDLE").
+SET stateIsValid TO FALSE.
+FOR s IN validStates {
+    IF state = s { SET stateIsValid TO TRUE. }
+}
+ASSERT_TRUE("STATE is valid value", stateIsValid).
+
+// When not executing, STATE should be IDLE
+IF NOT enabled {
+    ASSERT_EQ("STATE is IDLE when not enabled", "IDLE", state).
+}
+
+PRINT "STATE read tests done.".
+PRINT "-------------------------------".
+
+// -----------------------------------------------------------------------------
 // Test: AUTOWARP get/set
 // -----------------------------------------------------------------------------
 PRINT "TEST: AUTOWARP toggle".
