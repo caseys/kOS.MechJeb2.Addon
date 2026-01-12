@@ -160,6 +160,34 @@ namespace kOS.MechJeb2.Addon.Wrapeers
 
             GetAutoWarp = Member(nodeExecutor, "AutoWarp").GetField<bool>();
             SetAutoWarp = Member(nodeExecutor, "AutoWarp").SetField<bool>();
+
+            // --- Launch mode settings (for Launch to Plane / Launch to Rendezvous) ---
+            GetLaunchingToPlane = Member(ascentSettings, "LaunchingToPlane").GetField<bool>();
+            SetLaunchingToPlane = Member(ascentSettings, "LaunchingToPlane").SetField<bool>();
+
+            GetLaunchingToRendezvous = Member(ascentSettings, "LaunchingToRendezvous").GetField<bool>();
+            SetLaunchingToRendezvous = Member(ascentSettings, "LaunchingToRendezvous").SetField<bool>();
+
+            GetLaunchingToMatchLan = Member(ascentSettings, "LaunchingToMatchLan").GetField<bool>();
+            SetLaunchingToMatchLan = Member(ascentSettings, "LaunchingToMatchLan").SetField<bool>();
+
+            GetLaunchingToLan = Member(ascentSettings, "LaunchingToLan").GetField<bool>();
+            SetLaunchingToLan = Member(ascentSettings, "LaunchingToLan").SetField<bool>();
+
+            (GetLaunchPhaseAngleDouble, SetLaunchPhaseAngle) =
+                BindEditable<double>(ascentSettings, "LaunchPhaseAngle");
+
+            (GetLaunchLANDifferenceDouble, SetLaunchLANDifference) =
+                BindEditable<double>(ascentSettings, "LaunchLANDifference");
+
+            (GetDesiredLanDouble, SetDesiredLan) =
+                BindEditable<double>(ascentSettings, "DesiredLan");
+
+            GetOverrideWarpToPlane = Member(ascentSettings, "OverrideWarpToPlane").GetField<bool>();
+            SetOverrideWarpToPlane = Member(ascentSettings, "OverrideWarpToPlane").SetField<bool>();
+
+            // Bind StartCountdown method on autopilot for timed launches
+            _startCountdown = Reflect.On(autopilot).Method("StartCountdown").WithArgs(typeof(double)).AsAction();
         }
 
         protected override void InitializeSuffixes()
@@ -374,6 +402,60 @@ namespace kOS.MechJeb2.Addon.Wrapeers
                     () => GetAutoWarp(NodeExecutor),
                     value => SetAutoWarp(NodeExecutor, value),
                     "Enable automatic time warp for maneuver execution"));
+
+            // --- Launch mode settings (for Launch to Plane / Launch to Rendezvous) ---
+            AddSuffix(new[] { "LAUNCHINGTOPLANE", "TOPLANE" },
+                new SetSuffix<BooleanValue>(
+                    () => GetLaunchingToPlane(AscentSettings),
+                    value => SetLaunchingToPlane(AscentSettings, value),
+                    "Launch into target's orbital plane"));
+
+            AddSuffix(new[] { "LAUNCHINGTORENDEZVOUS", "TORENDEZVOUS" },
+                new SetSuffix<BooleanValue>(
+                    () => GetLaunchingToRendezvous(AscentSettings),
+                    value => SetLaunchingToRendezvous(AscentSettings, value),
+                    "Launch to rendezvous with target (phase angle matching)"));
+
+            AddSuffix(new[] { "LAUNCHINGTOMATCHLAN", "TOMATCHLAN" },
+                new SetSuffix<BooleanValue>(
+                    () => GetLaunchingToMatchLan(AscentSettings),
+                    value => SetLaunchingToMatchLan(AscentSettings, value),
+                    "Launch to match target's ascending node (PVG only)"));
+
+            AddSuffix(new[] { "LAUNCHINGTOLAN", "TOLAN" },
+                new SetSuffix<BooleanValue>(
+                    () => GetLaunchingToLan(AscentSettings),
+                    value => SetLaunchingToLan(AscentSettings, value),
+                    "Launch to specific LAN (PVG only)"));
+
+            AddSuffix(new[] { "LAUNCHPHASEANGLE", "PHASEANGLE" },
+                new SetSuffix<ScalarDoubleValue>(
+                    () => GetLaunchPhaseAngleDouble(AscentSettings),
+                    value => SetLaunchPhaseAngle(AscentSettings, value),
+                    "Phase angle for rendezvous launch (degrees)"));
+
+            AddSuffix(new[] { "LAUNCHLANDIFFERENCE", "LANDIFF" },
+                new SetSuffix<ScalarDoubleValue>(
+                    () => GetLaunchLANDifferenceDouble(AscentSettings),
+                    value => SetLaunchLANDifference(AscentSettings, value),
+                    "LAN offset from target for plane matching (degrees)"));
+
+            AddSuffix(new[] { "DESIREDLAN", "LAN" },
+                new SetSuffix<ScalarDoubleValue>(
+                    () => GetDesiredLanDouble(AscentSettings),
+                    value => SetDesiredLan(AscentSettings, value),
+                    "Desired ascending node longitude (degrees)"));
+
+            AddSuffix(new[] { "OVERRIDEWARPTOPLANE", "NOWARP" },
+                new SetSuffix<BooleanValue>(
+                    () => GetOverrideWarpToPlane(AscentSettings),
+                    value => SetOverrideWarpToPlane(AscentSettings, value),
+                    "Skip warp countdown for plane launches"));
+
+            AddSuffix(new[] { "STARTCOUNTDOWN" },
+                new OneArgsSuffix<BooleanValue, ScalarValue>(
+                    StartCountdown,
+                    "Start countdown to launch at specified universal time (UT)"));
         }
 
         public override string context() => nameof(MechJebAscentWrapper);
@@ -547,6 +629,60 @@ namespace kOS.MechJeb2.Addon.Wrapeers
         //LimitToPreventOverheats
         private Func<object, bool> GetLimitToPreventOverheats { get; set; }
         private Action<object, bool> SetLimitToPreventOverheats { get; set; }
+
+        // --- Launch mode settings ---
+        // LaunchingToPlane - launch into target's orbital plane
+        private Func<object, bool> GetLaunchingToPlane { get; set; }
+        private Action<object, bool> SetLaunchingToPlane { get; set; }
+
+        // LaunchingToRendezvous - launch to intercept target
+        private Func<object, bool> GetLaunchingToRendezvous { get; set; }
+        private Action<object, bool> SetLaunchingToRendezvous { get; set; }
+
+        // LaunchingToMatchLan - match target's ascending node (PVG only)
+        private Func<object, bool> GetLaunchingToMatchLan { get; set; }
+        private Action<object, bool> SetLaunchingToMatchLan { get; set; }
+
+        // LaunchingToLan - launch to specific LAN (PVG only)
+        private Func<object, bool> GetLaunchingToLan { get; set; }
+        private Action<object, bool> SetLaunchingToLan { get; set; }
+
+        // LaunchPhaseAngle - phase angle for rendezvous
+        private Func<object, double> GetLaunchPhaseAngleDouble { get; set; }
+        private Action<object, double> SetLaunchPhaseAngle { get; set; }
+
+        // LaunchLANDifference - LAN offset from target
+        private Func<object, double> GetLaunchLANDifferenceDouble { get; set; }
+        private Action<object, double> SetLaunchLANDifference { get; set; }
+
+        // DesiredLan - absolute LAN target
+        private Func<object, double> GetDesiredLanDouble { get; set; }
+        private Action<object, double> SetDesiredLan { get; set; }
+
+        // OverrideWarpToPlane - skip warp countdown
+        private Func<object, bool> GetOverrideWarpToPlane { get; set; }
+        private Action<object, bool> SetOverrideWarpToPlane { get; set; }
+
+        // StartCountdown method action (takes object for reflection compatibility)
+        private Action<object, object> _startCountdown { get; set; }
+
+        /// <summary>
+        /// Start countdown to launch at specified universal time
+        /// </summary>
+        private BooleanValue StartCountdown(ScalarValue ut)
+        {
+            if (!Initialized) return false;
+            try
+            {
+                _startCountdown(Autopilot, (double)ut);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SafeHouse.Logger.Log($"[kOS.MechJeb2.Addon] StartCountdown failed: {ex.Message}");
+                return false;
+            }
+        }
 
         //Helpers
         private (Func<object, T> get, Action<object, T> set)
